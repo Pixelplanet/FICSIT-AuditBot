@@ -1,0 +1,45 @@
+{
+  "name": "satisfactory-save-summary-bot",
+  "version": "0.1.0",
+  "description": "Watches Satisfactory save files, diffs them, and posts a summary of what changed to Discord.",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "watch": "tsx src/index.ts",
+    "inspect": "tsx src/tools/inspect.ts",
+    "dump": "tsx src/tools/dump.ts",
+    "schematics": "tsx src/tools/schematics.ts",
+    "diff": "tsx src/tools/diff.ts",
+    "docs": "tsx src/tools/docs.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d --build",
+    "docker:logs": "docker compose logs -f",
+    "docker:down": "docker compose down"
+  },
+  "keywords": [
+    "satisfactory",
+    "discord",
+    "savegame",
+    "bot"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@etothepii/satisfactory-file-parser": "^4.0.1",
+    "chokidar": "^4.0.3",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.22.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.25",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

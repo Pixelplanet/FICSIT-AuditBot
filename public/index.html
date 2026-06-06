@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Satisfactory Save Summary Bot</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">🏭</span>
+        <h1>Satisfactory Save Summary Bot</h1>
+      </div>
+      <div id="statusPill" class="pill pill-muted">Loading…</div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="preview">Preview</button>
+      <button class="tab" data-tab="config">Configuration</button>
+      <button class="tab" data-tab="status">Status</button>
+    </nav>
+
+    <main>
+      <!-- PREVIEW TAB -->
+      <section id="tab-preview" class="tab-panel active">
+        <div class="card">
+          <h2>Generate a preview</h2>
+          <p class="muted">
+            Preview the summary that would be posted — without sending anything to Discord.
+          </p>
+          <div class="row">
+            <button id="btnPreviewBaseline" class="btn btn-primary">
+              Preview latest (baseline → current save)
+            </button>
+            <button id="btnProcessNow" class="btn">Process now (live)</button>
+          </div>
+
+          <hr />
+
+          <h3>Compare two saves</h3>
+          <div class="row">
+            <label class="field">
+              <span>Before</span>
+              <select id="selBefore"></select>
+            </label>
+            <label class="field">
+              <span>After</span>
+              <select id="selAfter"></select>
+            </label>
+            <button id="btnPreviewBetween" class="btn">Compare</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="preview-head">
+            <h2>Output preview</h2>
+            <div id="previewMeta" class="muted"></div>
+          </div>
+          <div id="previewEmpty" class="empty">No preview yet. Click a button above.</div>
+
+          <div id="previewBody" class="hidden">
+            <div class="discord-mock">
+              <div id="embedCard" class="embed">
+                <div class="embed-bar"></div>
+                <div class="embed-content">
+                  <div id="embedTitle" class="embed-title"></div>
+                  <div id="embedDescription" class="embed-description"></div>
+                  <div id="embedFields" class="embed-fields"></div>
+                  <div id="embedTimestamp" class="embed-timestamp"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row preview-actions">
+              <button id="btnTestPost" class="btn btn-danger">Send this to Discord (test)</button>
+              <button id="btnToggleRaw" class="btn btn-ghost">Show raw</button>
+            </div>
+
+            <pre id="rawText" class="raw hidden"></pre>
+            <pre id="rawJson" class="raw hidden"></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONFIG TAB -->
+      <section id="tab-config" class="tab-panel">
+        <form id="configForm" class="card">
+          <h2>Configuration</h2>
+          <p class="muted">
+            Saved settings are written to <code>config.json</code> in the state directory and take
+            effect immediately.
+          </p>
+
+          <fieldset>
+            <legend>Saves</legend>
+            <label class="field">
+              <span>Saves directory</span>
+              <input type="text" name="savesDir" />
+            </label>
+            <label class="field">
+              <span>Canonical save suffix</span>
+              <input type="text" name="canonicalSaveSuffix" placeholder="_continue.sav" />
+            </label>
+            <label class="field">
+              <span>Game Docs.json path <em class="muted">(file, folder, or install root — blank to auto-detect)</em></span>
+              <input type="text" name="docsPath" placeholder="e.g. /data/gamefiles/.../CommunityResources/Docs/Docs.json" />
+            </label>
+            <div class="row">
+              <button type="button" id="btnReloadDocs" class="btn">Reload game data</button>
+              <span id="docsState" class="muted"></span>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Behaviour</legend>
+            <label class="check">
+              <input type="checkbox" name="postToDiscord" />
+              <span>Post to Discord (otherwise preview/console only)</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="skipEmptySummaries" />
+              <span>Skip posting when only time changed</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="watchUsePolling" />
+              <span>Use filesystem polling (recommended in Docker)</span>
+            </label>
+            <label class="field">
+              <span>Watch debounce (ms)</span>
+              <input type="number" name="watchDebounceMs" min="0" step="500" />
+            </label>
+            <label class="field">
+              <span>Space Elevator parts cost multiplier
+                <em class="muted">(0 = auto-detect from save)</em></span>
+              <input type="number" name="phaseCostMultiplier" min="0" step="0.5" />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Discord — Webhook</legend>
+            <label class="field">
+              <span>Webhook URL <em id="webhookState" class="state"></em></span>
+              <input type="password" name="webhookUrl" placeholder="Leave blank to keep current" autocomplete="off" />
+            </label>
+            <label class="check">
+              <input type="checkbox" id="clearWebhook" />
+              <span>Clear webhook</span>
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Discord — Bot</legend>
+            <label class="field">
+              <span>Bot token <em id="botState" class="state"></em></span>
+              <input type="password" name="botToken" placeholder="Leave blank to keep current" autocomplete="off" />
+            </label>
+            <label class="check">
+              <input type="checkbox" id="clearBot" />
+              <span>Clear bot token</span>
+            </label>
+            <label class="field">
+              <span>Channel ID</span>
+              <input type="text" name="channelId" placeholder="Numeric channel id" />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Web UI</legend>
+            <label class="field">
+              <span>Web port (applies after restart)</span>
+              <input type="number" name="webPort" min="1" step="1" />
+            </label>
+          </fieldset>
+
+          <div class="row">
+            <button type="submit" class="btn btn-primary">Save configuration</button>
+            <span id="configSaved" class="muted"></span>
+          </div>
+        </form>
+      </section>
+
+      <!-- STATUS TAB -->
+      <section id="tab-status" class="tab-panel">
+        <div class="card">
+          <h2>Status</h2>
+          <table id="statusTable" class="kv"></table>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,36 @@
+services:
+  satisfactory-summary-bot:
+    build: .
+    image: satisfactory-summary-bot:latest
+    container_name: satisfactory-summary-bot
+    restart: unless-stopped
+    ports:
+      # Host:Container — open http://localhost:8080 for the web UI.
+      - "8080:8080"
+    environment:
+      SAVES_DIR: /data/saves
+      STATE_DIR: /app/state
+      # Path to the game's Docs.json/en-US.json for real names + unlock info.
+      DOCS_PATH: /data/docs
+      WEB_PORT: "8080"
+      WEB_ENABLED: "true"
+      # Polling is more reliable for save changes across bind mounts.
+      WATCH_USE_POLLING: "true"
+      WATCH_DEBOUNCE_MS: "5000"
+      # Start in preview-only mode; flip to true (or use the web UI) to post.
+      POST_TO_DISCORD: "false"
+      SKIP_EMPTY_SUMMARIES: "true"
+      # Optionally set Discord credentials here, or configure them in the web UI.
+      # DISCORD_WEBHOOK_URL: ""
+      # DISCORD_BOT_TOKEN: ""
+      # DISCORD_CHANNEL_ID: ""
+    volumes:
+      # Mount your Satisfactory saves folder (read-only) into the container.
+      # For local debugging this points at the bundled ./Saves folder.
+      - ./Saves:/data/saves:ro
+      # Mount the game's Docs folder (read-only) to resolve real names + unlocks.
+      # Point the host side at <install>/CommunityResources/Docs (contains Docs.json
+      # or en-US.json). Comment out if unavailable; names degrade gracefully.
+      - ./docs:/data/docs:ro
+      # Persist snapshots, db.json and config.json across restarts.
+      - ./state:/app/state

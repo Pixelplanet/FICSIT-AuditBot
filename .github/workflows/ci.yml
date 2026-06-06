@@ -1,0 +1,36 @@
+# =============================================================================
+# CI — Build the FICSIT AuditBot image and deploy the test instance
+# =============================================================================
+# Reuses the shared, reusable workflows hosted in Pixelplanet/lasertools so the
+# build + Portainer deploy logic stays in one place across all repos.
+#
+# Required secrets (repo-level on this repo, or organization-level shared):
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+#   PORTAINER_URL, PORTAINER_API_KEY, PORTAINER_ENDPOINT_ID
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    uses: Pixelplanet/lasertools/.github/workflows/docker-build.yml@main
+    with:
+      image-name: pixelplanet/ficsit-auditbot
+      context-path: .
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  deploy:
+    needs: build
+    uses: Pixelplanet/lasertools/.github/workflows/portainer-deploy.yml@main
+    with:
+      container-name: ficsit-auditbot-test
+    secrets:
+      PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
+      PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+      PORTAINER_ENDPOINT_ID: ${{ secrets.PORTAINER_ENDPOINT_ID }}

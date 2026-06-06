@@ -1,0 +1,17 @@
+node_modules
+dist
+state
+tmp-test
+Saves
+docs
+.env
+.env.local
+.git
+.gitignore
+*.log
+npm-debug.log*
+.vscode
+.DS_Store
+Thumbs.db
+plan-*.prompt.md
+README.md

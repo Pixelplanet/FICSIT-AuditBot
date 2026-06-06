@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Runtime state (snapshots + db.json)
+state/
+
+# Local Satisfactory save files (large, user-supplied; mounted at runtime)
+Saves/
+
+# Game documentation files (large; user-supplied). Keep the folder's README.
+docs/*.json
+docs/CommunityResources/
+tmp-test/
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
