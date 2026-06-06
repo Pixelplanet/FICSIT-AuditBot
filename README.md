@@ -28,6 +28,67 @@ All summary generation happens **in the application** (no AI at runtime).
 > Unknown classes degrade gracefully to a prettified name. Deeper per‑factory
 > "theoretical max output" analytics are planned (see _Roadmap_).
 
+## Example summary
+
+Each time the canonical save changes, the bot posts a Discord embed like this:
+
+> **🛠️ Factory Update — New 1.2 World**
+>
+> Here's what changed since the last save.
+>
+> ⏱️ **18m** of factory time passed (total 13h 54m).
+>
+> 🔬 **New research (6)**
+> • **Caterium Ingots** — Unlocks: Caterium Ingot, Quickwire
+> • **Caterium Electronics** — Unlocks: AI Limiter, Circuit Board (alt.)
+> • **Quickwire** — Unlocks: Stator, Power Switch
+> • **Caterium Computer** — Unlocks: Supercomputer (alt.)
+> • **Caterium Cabling** — Unlocks: Cable (alt.)
+> • **Power Poles Mk.2** — Unlocks: Power Pole Mk.2
+>
+> 🧪 **New alternate recipes (2)**
+> • **Alt: Iron Alloy Ingot** — 4× Iron Ore + 2× Copper Ore → 15× Iron Ingot @ Foundry (12s)
+> • **Alt: Expanded Toolbelt** — +1 inventory bar
+>
+> 🚀 **Project Assembly — Construction Dock**
+> Delivered **+76 Smart Plating**.
+> Progress: **21%** (×2 parts cost)
+> • Smart Plating: 883 / 2,000
+> • Versatile Framework: 0 / 2,000
+> • Automated Wiring: 0 / 200
+>
+> ⚡ **New power generation**
+> • +4 Coal Generator (now 12)
+>
+> 🏭 **Factories**
+> • +18 Constructor (now 64)
+> • +6 Assembler (now 22)
+>
+> **— ADA**
+> _Commendable effort. Consider this rare moment of approval a non-recurring bonus._
+
+> The closing line is ADA's commentary, picked automatically to match how much
+> you accomplished (see [ADA commentary](#ada-commentary) below).
+
+## ADA commentary
+
+Every summary ends with a one‑line remark in the dry, corporate‑cheerful voice of
+**ADA**. The line is chosen at random from a curated, offline list — the bot never
+calls an AI at runtime — and the **category is matched to how much actually got
+done** since the last save:
+
+| Tone | When it's used | Vibe |
+| --- | --- | --- |
+| **Exceptional** | A phase advanced and/or lots was unlocked & built | Approving, motivational |
+| **Productive** | A solid, steady amount of progress | Measured approval |
+| **Modest** | Only a little happened | Gentle "the factory must grow" prodding |
+| **Idle** | Basically nothing but time passing | Sarcastic mockery |
+
+Activity is scored from unlocks (milestones / research / alternate recipes),
+buildings constructed, and Project Assembly progress; a lot of elapsed time with
+little to show for it leans toward mockery. Lines live in
+[`src/summary/ada.ts`](src/summary/ada.ts) — add your own to any category.
+
 ## Requirements
 
 - Node.js 18+ (tested on Node 24)

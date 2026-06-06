@@ -6,6 +6,7 @@
 import { gamePhaseName } from '../data/gameData.js';
 import type { SchematicEntry } from '../model.js';
 import type { WorldDelta } from '../diff/compare.js';
+import { pickAdaLine } from './ada.js';
 
 export interface SummaryEmbedField {
   name: string;
@@ -31,7 +32,19 @@ export interface SummaryResult {
 const EMBED_COLOR = 0xfa9549; // Satisfactory orange.
 const MAX_LIST_ITEMS = 15;
 
-export function formatSummary(delta: WorldDelta): SummaryResult {
+/** Options controlling how a summary is rendered. */
+export interface FormatOptions {
+  /**
+   * Random source in [0, 1) used to pick the ADA closing remark. Injectable so
+   * tests can be deterministic; defaults to {@link Math.random}.
+   */
+  rng?: () => number;
+  /** Set to `false` to omit the ADA closing remark entirely. */
+  includeAda?: boolean;
+}
+
+export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): SummaryResult {
+  const { rng = Math.random, includeAda = true } = options;
   const lines: string[] = [];
   const fields: SummaryEmbedField[] = [];
 
@@ -122,6 +135,13 @@ export function formatSummary(delta: WorldDelta): SummaryResult {
   const description = delta.isEmpty
     ? timeLine
     : `Here's what changed since the last save.\n\n${timeLine}`;
+
+  // ADA's closing remark — tone matched to how much was accomplished.
+  const adaLine = includeAda ? pickAdaLine(delta, rng) : undefined;
+  if (adaLine) {
+    lines.push(`\n> _${adaLine}_\n> — ADA`);
+    fields.push({ name: '\u2014 ADA', value: `_${adaLine}_` });
+  }
 
   const embed: SummaryEmbed = {
     title,
