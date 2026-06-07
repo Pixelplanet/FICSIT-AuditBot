@@ -237,6 +237,27 @@ Discord either in `compose.yaml` env or directly in the web UI.
 > `WATCH_USE_POLLING` defaults to `true` in the container because filesystem
 > change events are unreliable across bind mounts.
 
+### Portainer / production
+
+For a server deployment, use `compose.portainer.yaml`, which pulls the prebuilt
+image `pixelplanet/ficsit-auditbot:latest` from DockerHub (no local build) and
+parameterises the host paths via a `.env` file:
+
+1. Copy `.env.example` to `.env` and set the host paths + Discord credentials.
+   Defaults assume a dedicated app folder under `/mnt/docker_data`:
+
+   | Variable | Default | Purpose |
+   | --- | --- | --- |
+   | `SAVES_HOST_DIR` | `/mnt/docker_data/satisfactory/saved/server` | Server saves (read‑only) |
+   | `STATE_HOST_DIR` | `/mnt/docker_data/ficsit-auditbot/state` | App state (snapshots, db, config) |
+   | `DOCS_HOST_DIR` | `/mnt/docker_data/ficsit-auditbot/docs` | Optional game docs (read‑only) |
+
+2. In Portainer: **Stacks → Add stack → Web editor**, paste
+   `compose.portainer.yaml`, then **Environment variables → Load variables from
+   .env file** and upload your `.env`. Deploy.
+
+The `.env` is git‑ignored, so your credentials never get committed.
+
 ## Power balance
 
 Each summary includes a grid‑wide power snapshot so readers can immediately see

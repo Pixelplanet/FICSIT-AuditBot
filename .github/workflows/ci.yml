@@ -17,6 +17,9 @@ on:
 
 env:
   IMAGE_NAME: pixelplanet/ficsit-auditbot
+  # Run the JavaScript actions below on Node.js 24 (they ship on Node 20, which
+  # GitHub is deprecating). Opting in now silences the deprecation warning.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build-and-push:
