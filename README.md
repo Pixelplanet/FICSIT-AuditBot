@@ -116,7 +116,7 @@ Edit `.env`:
 | `CANONICAL_SAVE_SUFFIX` | `_continue.sav` | Which save suffix to track (set `.sav` on dedicated servers to follow autosaves) |
 | `AUTOSAVE_INTERVAL_MINUTES` | `0` | When `>0`, infer autosave cadence and prefer newest **off-cadence** save (disconnect/player save) |
 | `AUTOSAVE_TIME_TOLERANCE_SECONDS` | `2` | Allowed timing drift when detecting autosave cadence |
-| `SERVER_API_URL` | _(blank)_ | Optional dedicated-server API endpoint (e.g. `https://127.0.0.1:7777/api/v1`) |
+| `SERVER_API_URL` | _(blank)_ | Optional dedicated-server API endpoint; blank enables local endpoint auto-detection |
 | `SERVER_API_TOKEN` | _(blank)_ | Optional API bearer token (`server.GenerateAPIToken`) |
 | `SERVER_API_ALLOW_INSECURE_TLS` | `true` | Allow self-signed dedicated-server certificate |
 | `SERVER_API_TIMEOUT_MS` | `5000` | Timeout for server API requests |
@@ -160,13 +160,14 @@ selection behavior and expose diagnostics in the web UI status tab.
 Setup:
 1. Generate token on the server console: `server.GenerateAPIToken`
 2. Set:
-  - `SERVER_API_URL=https://<server>:7777/api/v1`
   - `SERVER_API_TOKEN=<generated token>`
+  - `SERVER_API_URL=https://<server>:7777/api/v1` _(optional; blank = auto-detect)_
   - `SERVER_API_ALLOW_INSECURE_TLS=true` (for self-signed certs)
 3. Restart the bot / redeploy stack.
 
 When active, the status tab shows live values such as connected players,
-paused/running state, active milestone schematic, and current game phase.
+paused/running state, active milestone schematic, current game phase, selected
+endpoint, and the last connection error (if any).
 
 Both delivery methods can be enabled at once; each is attempted independently.
 

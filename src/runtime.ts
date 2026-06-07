@@ -375,12 +375,14 @@ export class Runtime {
       return undefined;
     }
     try {
-      const state = await queryServerState(config);
+      const result = await queryServerState(config);
       this.serverApiState = {
         configured: true,
         reachable: true,
         checkedAt: new Date().toISOString(),
-        gameState: state,
+        endpointUrl: result.endpointUrl,
+        autoDetected: result.autoDetected,
+        gameState: result.gameState,
       };
       return this.serverApiState;
     } catch (err) {

@@ -180,10 +180,13 @@ async function loadStatus() {
       ['Discord configured', s.discordReady ? 'yes' : 'no'],
       ['Server API configured', s.serverApi?.configured ? 'yes' : 'no'],
       ['Server API reachable', s.serverApi?.reachable ? 'yes' : 'no'],
+      ['Server API endpoint', s.serverApi?.configured ? (s.serverApi?.endpointUrl || 'auto-detect pending') : '—'],
+      ['Server API auto-detected', s.serverApi?.autoDetected == null ? '—' : (s.serverApi.autoDetected ? 'yes' : 'no')],
       ['Server connected players', s.serverApi?.gameState?.numConnectedPlayers ?? '—'],
       ['Server paused', s.serverApi?.gameState?.isGamePaused == null ? '—' : (s.serverApi.gameState.isGamePaused ? 'yes' : 'no')],
       ['Active milestone', s.serverApi?.gameState?.activeSchematic || '—'],
       ['Game phase', s.serverApi?.gameState?.gamePhase || '—'],
+      ['Server API last error', s.serverApi?.error || '—'],
       ['Game data (Docs.json)', s.docs && s.docs.loaded
         ? `loaded — ${s.docs.schematics} schematics, ${s.docs.recipes} recipes, ${s.docs.items} items`
         : (s.docs && s.docs.error ? s.docs.error : 'not loaded')],
