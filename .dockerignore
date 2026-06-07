@@ -1,8 +1,8 @@
 node_modules
 dist
-state
+/state
 tmp-test
-Saves
+/Saves
 docs
 .env
 .env.local

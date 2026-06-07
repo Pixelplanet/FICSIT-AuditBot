@@ -4,11 +4,12 @@ node_modules/
 # Build output
 dist/
 
-# Runtime state (snapshots + db.json)
-state/
+# Runtime state (snapshots + db.json). Anchored to repo root so it does NOT
+# also ignore the src/state/ source directory.
+/state/
 
 # Local Satisfactory save files (large, user-supplied; mounted at runtime)
-Saves/
+/Saves/
 
 # Game documentation files (large; user-supplied). Keep the folder's README.
 docs/*.json
