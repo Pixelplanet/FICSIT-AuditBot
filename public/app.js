@@ -6,6 +6,14 @@ async function getJSON(url) {
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
   return res.json();
 }
+
+function setStatusMessage(message) {
+  const html = `<tr><td>Status</td><td>${escapeHtml(message)}</td></tr>`;
+  for (const id of ['statusTable', 'apiStatusTable']) {
+    const table = document.getElementById(id);
+    if (table) table.innerHTML = html;
+  }
+}
 async function sendJSON(url, method, body) {
   const res = await fetch(url, {
     method,
@@ -167,6 +175,7 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
 
 // ---- Status ----
 async function loadStatus() {
+  setStatusMessage('Loading status…');
   try {
     const s = await getJSON('/api/status');
     const rows = [
@@ -219,7 +228,31 @@ async function loadStatus() {
       pill.textContent = 'Idle';
     }
   } catch (err) {
+    setStatusMessage('Failed to load status: ' + err.message);
     toast('Failed to load status: ' + err.message, 'err');
+  }
+}
+
+async function loadLogs() {
+  const pane = document.getElementById('logsPane');
+  if (!pane) return;
+  pane.textContent = 'Loading logs…';
+  try {
+    const logs = await getJSON('/api/logs?limit=250');
+    if (!Array.isArray(logs) || logs.length === 0) {
+      pane.textContent = 'No logs available yet.';
+      return;
+    }
+    pane.textContent = logs
+      .map((e) => {
+        const ts = e.at ? new Date(e.at).toLocaleTimeString() : '—';
+        const level = (e.level || 'log').toUpperCase().padEnd(5, ' ');
+        return `${ts} [${level}] ${e.message || ''}`;
+      })
+      .join('\n');
+    pane.scrollTop = pane.scrollHeight;
+  } catch (err) {
+    pane.textContent = 'Failed to load logs: ' + err.message;
   }
 }
 
@@ -346,6 +379,10 @@ document.getElementById('btnToggleRaw').addEventListener('click', (e) => {
   e.target.textContent = hidden ? 'Hide raw' : 'Show raw';
 });
 
+document.getElementById('btnRefreshLogs')?.addEventListener('click', async () => {
+  await loadLogs();
+});
+
 async function refreshLatestPreview() {
   try {
     const p = await getJSON('/api/preview');
@@ -365,7 +402,9 @@ function escapeHtml(s) {
 // ---- Init ----
 (async function init() {
   await loadStatus();
+  await loadLogs();
   await loadSaves();
   await refreshLatestPreview();
   setInterval(loadStatus, 10000);
+  setInterval(loadLogs, 5000);
 })();

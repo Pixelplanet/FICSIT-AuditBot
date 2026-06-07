@@ -71,6 +71,8 @@ export class Runtime {
   private lastResult?: { status: string; message: string; at: string };
   private docsStatus: DocsStatus = { loaded: false };
   private serverApiState: ServerApiState = { configured: false, reachable: false };
+  private serverApiRefreshInFlight?: Promise<ServerApiState | undefined>;
+  private lastServerApiRefreshMs = 0;
 
   constructor(
     private readonly configManager: ConfigManager,
@@ -305,7 +307,7 @@ export class Runtime {
   async getStatus(): Promise<RuntimeStatus> {
     const config = this.config;
     const canonicalSave = await findCanonicalSave(config);
-    await this.queryServerStateSafe();
+    void this.refreshServerApiState();
     const state = this.store.get();
     const ws = state.lastWorldState;
 
@@ -395,6 +397,17 @@ export class Runtime {
       console.warn('[server-api] QueryServerState failed:', err);
       return this.serverApiState;
     }
+  }
+
+  private async refreshServerApiState(): Promise<ServerApiState | undefined> {
+    const now = Date.now();
+    if (this.serverApiRefreshInFlight) return this.serverApiRefreshInFlight;
+    if (now - this.lastServerApiRefreshMs < 8000) return this.serverApiState;
+    this.lastServerApiRefreshMs = now;
+    this.serverApiRefreshInFlight = this.queryServerStateSafe().finally(() => {
+      this.serverApiRefreshInFlight = undefined;
+    });
+    return this.serverApiRefreshInFlight;
   }
 
   private shouldSkipBecauseServerActive(state: ServerGameState | undefined): boolean {

@@ -6,8 +6,10 @@
 import { ConfigManager, hasDiscordDelivery, type AppConfig } from './config.js';
 import { createRuntime, type Runtime } from './runtime.js';
 import { startWebServer, type WebServerHandle } from './web/server.js';
+import { installConsoleCapture } from './logs/store.js';
 
 async function main(): Promise<void> {
+  installConsoleCapture();
   const configManager = new ConfigManager();
   await configManager.load();
   const config = configManager.get();

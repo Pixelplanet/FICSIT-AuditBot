@@ -8,6 +8,7 @@ import type { Server } from 'node:http';
 import type { ConfigManager, SettingsPatch } from '../config.js';
 import type { Runtime } from '../runtime.js';
 import { toDiscordEmbed } from '../discord/embed.js';
+import { getRecentLogs } from '../logs/store.js';
 
 export interface WebServerHandle {
   close(): Promise<void>;
@@ -36,6 +37,12 @@ export async function startWebServer(
   app.get('/api/status', asyncHandler(async (_req: Request, res: Response) => {
     res.json(await runtime.getStatus());
   }));
+
+  app.get('/api/logs', (req: Request, res: Response) => {
+    const limitRaw = Number(req.query.limit ?? 200);
+    const limit = Number.isFinite(limitRaw) ? limitRaw : 200;
+    res.json(getRecentLogs(limit));
+  });
 
   app.get('/api/saves', asyncHandler(async (_req: Request, res: Response) => {
     res.json(await runtime.listSaves());
