@@ -3,10 +3,10 @@
 # =============================================================================
 # Pulls the prebuilt image from DockerHub (no local build).
 #
-# Storage is intentionally simple to avoid Portainer variable-substitution
-# issues with bind paths:
-#   * ONE named volume  → /data   (holds state/ and docs/ subfolders)
-#   * ONE bind mount     → /saves  (the Satisfactory server's save folder, RO)
+# Storage is intentionally simple — two bind mounts under /mnt/docker_data so
+# everything lives in one predictable place per the other stacks:
+#   * /mnt/docker_data/ficsit-auditbot/data → /data   (state/ + docs/ subfolders)
+#   * /mnt/docker_data/satisfactory/saved/server → /saves  (server saves, RO)
 #
 # The ONLY line you may need to edit is the saves bind source below if your
 # server stores saves somewhere other than the default path.
@@ -37,11 +37,9 @@ services:
       DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN:-}"
       DISCORD_CHANNEL_ID: "${DISCORD_CHANNEL_ID:-}"
     volumes:
-      # All app data (state + docs subfolders) on one managed volume.
-      - ficsit-auditbot-data:/data
+      # All app data (state/ + docs/ subfolders) in one host folder under the
+      # standard /mnt/docker_data location, matching the other stacks.
+      - /mnt/docker_data/ficsit-auditbot/data:/data
       # The Satisfactory dedicated-server saves (read-only). Edit this host
       # path if your saves live elsewhere.
       - /mnt/docker_data/satisfactory/saved/server:/saves:ro
-
-volumes:
-  ficsit-auditbot-data:
