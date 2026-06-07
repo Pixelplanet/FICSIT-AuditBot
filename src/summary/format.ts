@@ -121,11 +121,12 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
   // --- Storage ---
   const storageDeltas = delta.buildingDeltas.filter((b) => b.category === 'storage' && b.delta !== 0);
   const storageLines: string[] = [];
+  const depotUploaderDelta = storageDeltas.find((b) => b.id === 'Build_CentralStorage' || b.id === 'Desc_CentralStorage');
   if (storageDeltas.length > 0) {
     storageLines.push(renderList(storageDeltas.map((b) => `${signed(b.delta)} ${b.name} (now ${b.after})`)));
   }
 
-  if (delta.storage.dimensionalDepotUploaders > 0) {
+  if (delta.storage.dimensionalDepotUploaders > 0 && !depotUploaderDelta) {
     storageLines.push(
       `• Dimensional Depot Uploaders: **${delta.storage.dimensionalDepotUploaders}**`,
     );
@@ -136,8 +137,6 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
         delta.storage.dimensionalDepotItems.map((item) => `${num(item.amount)}× ${item.name}`),
       ),
     );
-  } else if (delta.storage.dimensionalDepotUploaders > 0) {
-    storageLines.push('• Dimensional Depot contents: empty / unavailable');
   }
 
   if (storageLines.length > 0) {

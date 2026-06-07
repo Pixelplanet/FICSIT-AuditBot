@@ -64,10 +64,16 @@ body {
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-main { max-width: 920px; margin: 0 auto; padding: 24px; }
+main { max-width: 1480px; margin: 0 auto; padding: 24px; }
 
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+#tab-status.active {
+  display: grid;
+  grid-template-columns: minmax(360px, 540px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
 
 .card {
   background: var(--panel);
@@ -75,6 +81,7 @@ main { max-width: 920px; margin: 0 auto; padding: 24px; }
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 20px;
+  min-width: 0;
 }
 .card h2 { margin-top: 0; font-size: 16px; }
 .card h3 { font-size: 14px; margin-bottom: 8px; }
@@ -157,9 +164,26 @@ legend { color: var(--accent-2); font-size: 13px; padding: 0 6px; }
   overflow: auto;
 }
 
-.kv { width: 100%; border-collapse: collapse; }
-.kv td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.kv { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.kv td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
 .kv td:first-child { color: var(--muted); width: 220px; }
+
+.logs-pane {
+  min-height: 440px;
+  max-height: 72vh;
+}
+
+@media (max-width: 1080px) {
+  #tab-status.active {
+    grid-template-columns: 1fr;
+  }
+}
 
 .toast {
   position: fixed;

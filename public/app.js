@@ -1,19 +1,11 @@
 'use strict';
 
-/** Minimal fetch helpers. */
 async function getJSON(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
   return res.json();
 }
 
-function setStatusMessage(message) {
-  const html = `<tr><td>Status</td><td>${escapeHtml(message)}</td></tr>`;
-  for (const id of ['statusTable', 'apiStatusTable']) {
-    const table = document.getElementById(id);
-    if (table) table.innerHTML = html;
-  }
-}
 async function sendJSON(url, method, body) {
   const res = await fetch(url, {
     method,
@@ -41,19 +33,37 @@ function fmtDuration(totalSeconds) {
   return `${s}s`;
 }
 
-// ---- Tabs ----
+let currentPreview = null;
+let lastStatusHtml = '';
+let lastLogsText = '';
+
+function isTabActive(name) {
+  return document.getElementById('tab-' + name)?.classList.contains('active');
+}
+
+function setStatusMessage(message) {
+  const html = `<tr><td>Status</td><td>${escapeHtml(message)}</td></tr>`;
+  lastStatusHtml = html;
+  for (const id of ['statusTable', 'apiStatusTable']) {
+    const table = document.getElementById(id);
+    if (table) table.innerHTML = html;
+  }
+}
+
 document.querySelectorAll('.tab').forEach((tab) => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-    if (tab.dataset.tab === 'status') loadStatus();
-    if (tab.dataset.tab === 'config') loadConfig();
+    if (tab.dataset.tab === 'status') {
+      void loadStatus();
+      void loadLogs();
+    }
+    if (tab.dataset.tab === 'config') void loadConfig();
   });
 });
 
-// ---- Config ----
 async function loadConfig() {
   try {
     const cfg = await getJSON('/api/config');
@@ -82,7 +92,7 @@ async function loadConfig() {
     document.getElementById('clearWebhook').checked = false;
     document.getElementById('clearBot').checked = false;
     document.getElementById('clearServerApiToken').checked = false;
-    refreshDocsState();
+    await refreshDocsState();
   } catch (err) {
     toast('Failed to load config: ' + err.message, 'err');
   }
@@ -113,7 +123,6 @@ document.getElementById('btnReloadDocs').addEventListener('click', async () => {
   const el = document.getElementById('docsState');
   el.textContent = 'Reloading…';
   try {
-    // Save current path first so reload uses it.
     await sendJSON('/api/config', 'PUT', { docsPath: document.getElementById('configForm').docsPath.value.trim() });
     const status = await sendJSON('/api/docs/reload', 'POST');
     if (status.loaded) {
@@ -156,7 +165,6 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
     },
     discord: {
       channelId: f.channelId.value.trim(),
-      // null clears, undefined keeps, string sets
       webhookUrl: clearWebhook ? null : (f.webhookUrl.value.trim() || undefined),
       botToken: clearBot ? null : (f.botToken.value.trim() || undefined),
     },
@@ -173,9 +181,9 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
   }
 });
 
-// ---- Status ----
-async function loadStatus() {
-  setStatusMessage('Loading status…');
+async function loadStatus(options = {}) {
+  const { silent = false } = options;
+  if (!silent && !lastStatusHtml) setStatusMessage('Loading status…');
   try {
     const s = await getJSON('/api/status');
     const rows = [
@@ -211,9 +219,12 @@ async function loadStatus() {
     const tableHtml = rows
       .map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(String(v))}</td></tr>`)
       .join('');
-    for (const id of ['statusTable', 'apiStatusTable']) {
-      const table = document.getElementById(id);
-      if (table) table.innerHTML = tableHtml;
+    if ((isTabActive('status') || !lastStatusHtml || !silent) && tableHtml !== lastStatusHtml) {
+      lastStatusHtml = tableHtml;
+      for (const id of ['statusTable', 'apiStatusTable']) {
+        const table = document.getElementById(id);
+        if (table) table.innerHTML = tableHtml;
+      }
     }
 
     const pill = document.getElementById('statusPill');
@@ -228,35 +239,43 @@ async function loadStatus() {
       pill.textContent = 'Idle';
     }
   } catch (err) {
-    setStatusMessage('Failed to load status: ' + err.message);
+    if (!silent || !lastStatusHtml) setStatusMessage('Failed to load status: ' + err.message);
     toast('Failed to load status: ' + err.message, 'err');
   }
 }
 
-async function loadLogs() {
+async function loadLogs(options = {}) {
+  const { silent = false } = options;
   const pane = document.getElementById('logsPane');
   if (!pane) return;
-  pane.textContent = 'Loading logs…';
+  if (silent && !isTabActive('status')) return;
+  if (!silent && !lastLogsText) pane.textContent = 'Loading logs…';
   try {
     const logs = await getJSON('/api/logs?limit=250');
-    if (!Array.isArray(logs) || logs.length === 0) {
-      pane.textContent = 'No logs available yet.';
-      return;
+    let text = 'No logs available yet.';
+    if (Array.isArray(logs) && logs.length > 0) {
+      text = logs
+        .map((e) => {
+          const ts = e.at ? new Date(e.at).toLocaleTimeString() : '—';
+          const level = (e.level || 'log').toUpperCase().padEnd(5, ' ');
+          return `${ts} [${level}] ${e.message || ''}`;
+        })
+        .join('\n');
     }
-    pane.textContent = logs
-      .map((e) => {
-        const ts = e.at ? new Date(e.at).toLocaleTimeString() : '—';
-        const level = (e.level || 'log').toUpperCase().padEnd(5, ' ');
-        return `${ts} [${level}] ${e.message || ''}`;
-      })
-      .join('\n');
-    pane.scrollTop = pane.scrollHeight;
+    if (text !== lastLogsText) {
+      pane.textContent = text;
+      pane.scrollTop = pane.scrollHeight;
+      lastLogsText = text;
+    }
   } catch (err) {
-    pane.textContent = 'Failed to load logs: ' + err.message;
+    const text = 'Failed to load logs: ' + err.message;
+    if (text !== lastLogsText) {
+      pane.textContent = text;
+      lastLogsText = text;
+    }
   }
 }
 
-// ---- Saves dropdowns ----
 async function loadSaves() {
   try {
     const saves = await getJSON('/api/saves');
@@ -275,9 +294,6 @@ async function loadSaves() {
     toast('Failed to load saves: ' + err.message, 'err');
   }
 }
-
-// ---- Preview rendering ----
-let currentPreview = null;
 
 function renderPreview(p) {
   currentPreview = p;
@@ -314,15 +330,11 @@ function renderPreview(p) {
   document.getElementById('embedTitle').textContent = e.title || '';
   document.getElementById('embedDescription').textContent = e.description || '';
   document.getElementById('embedFields').innerHTML = (e.fields || [])
-    .map(
-      (f) =>
-        `<div class="embed-field"><div class="embed-field-name">${escapeHtml(f.name)}</div>` +
-        `<div class="embed-field-value">${escapeHtml(f.value)}</div></div>`,
-    )
+    .map((f) =>
+      `<div class="embed-field"><div class="embed-field-name">${escapeHtml(f.name)}</div>` +
+      `<div class="embed-field-value">${escapeHtml(f.value)}</div></div>`)
     .join('');
-  document.getElementById('embedTimestamp').textContent = e.timestamp
-    ? new Date(e.timestamp).toLocaleString()
-    : '';
+  document.getElementById('embedTimestamp').textContent = e.timestamp ? new Date(e.timestamp).toLocaleString() : '';
 
   document.getElementById('rawText').textContent = p.text || '';
   document.getElementById('rawJson').textContent = JSON.stringify(e, null, 2);
@@ -354,7 +366,7 @@ document.getElementById('btnProcessNow').addEventListener('click', async () => {
     const r = await sendJSON('/api/process-now', 'POST');
     toast(`Processed: ${r.status}`, 'ok');
     setTimeout(refreshLatestPreview, 600);
-    loadStatus();
+    void loadStatus();
   } catch (err) {
     toast('Process failed: ' + err.message, 'err');
   }
@@ -388,7 +400,7 @@ async function refreshLatestPreview() {
     const p = await getJSON('/api/preview');
     if (p) renderPreview(p);
   } catch {
-    /* ignore */
+    // ignore background preview refresh failures
   }
 }
 
@@ -399,12 +411,11 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;');
 }
 
-// ---- Init ----
 (async function init() {
   await loadStatus();
   await loadLogs();
   await loadSaves();
   await refreshLatestPreview();
-  setInterval(loadStatus, 10000);
-  setInterval(loadLogs, 5000);
+  setInterval(() => { void loadStatus({ silent: true }); }, 10000);
+  setInterval(() => { void loadLogs({ silent: true }); }, 5000);
 })();

@@ -88,6 +88,20 @@ describe('diffWorldStates', () => {
     expect(text).toContain('Truck Path');
   });
 
+  it('does not duplicate dimensional depot uploader totals or claim empty contents', () => {
+    const before = baseState();
+    const after = baseState({
+      storage: { dimensionalDepotUploaders: 9, dimensionalDepotItems: [] },
+      buildings: [
+        { id: 'Build_CentralStorage', name: 'Dimensional Depot Uploader', category: 'storage', count: 9 },
+      ],
+    });
+    const { text } = formatSummary(diffWorldStates(before, after), { includeAda: false });
+    expect(text).toContain('Dimensional Depot Uploader');
+    expect(text).not.toContain('Dimensional Depot Uploaders: **9**');
+    expect(text).not.toContain('empty / unavailable');
+  });
+
   it('diffs phase deliveries only when target phase is unchanged', () => {
     const before = baseState({
       gamePhase: {
