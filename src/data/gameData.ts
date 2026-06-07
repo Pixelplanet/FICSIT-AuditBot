@@ -152,6 +152,8 @@ export const STORAGE_NAMES: Record<string, string> = {
   Build_StorageContainerMk2: 'Industrial Storage Container',
   Build_Storageplayer: 'Personal Storage Box',
   Build_StoragePlayer: 'Personal Storage Box',
+  Build_CentralStorage: 'Dimensional Depot Uploader',
+  Desc_CentralStorage: 'Dimensional Depot Uploader',
 };
 
 /** Logistics class ids that we count individually in {@link LogisticsState}. */

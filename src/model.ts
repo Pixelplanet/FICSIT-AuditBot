@@ -85,6 +85,14 @@ export interface LogisticsState {
   drones: number;
 }
 
+/** Dimensional Depot / cloud-storage snapshot. */
+export interface StorageState {
+  /** Number of Dimensional Depot Uploader buildings present in the save. */
+  dimensionalDepotUploaders: number;
+  /** Best-effort list of item types currently exposed by the central storage system. */
+  dimensionalDepotItems: ItemAmount[];
+}
+
 /** Power infrastructure tallies grouped by generator type. */
 export interface PowerState {
   /** Count of each generator type, keyed by friendly name. */
@@ -127,6 +135,7 @@ export interface WorldState {
   gamePhase: GamePhaseState;
   power: PowerState;
   logistics: LogisticsState;
+  storage: StorageState;
   /** All tracked building counts (includes production/extraction/storage). */
   buildings: BuildingCount[];
 }

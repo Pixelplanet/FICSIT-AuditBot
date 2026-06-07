@@ -8,6 +8,7 @@ import type {
   SchematicCategory,
   SchematicEntry,
   WorldState,
+  StorageState,
 } from '../model.js';
 import { itemName, phaseRequirements } from '../data/gameData.js';
 
@@ -99,6 +100,9 @@ export interface WorldDelta {
   /** Building count increases (and decreases). */
   buildingDeltas: BuildingDelta[];
 
+  /** Current Dimensional Depot / cloud storage snapshot after the save. */
+  storage: StorageState;
+
   /** Grid-wide power capacity vs. consumption snapshot and change. */
   power: PowerDelta;
 
@@ -181,6 +185,7 @@ export function diffWorldStates(
     phaseDeliveryDeltas,
     phaseProgress,
     buildingDeltas,
+    storage: after.storage,
     power,
     isEmpty,
   };

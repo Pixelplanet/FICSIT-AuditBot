@@ -19,11 +19,13 @@ All summary generation happens **in the application** (no AI at runtime).
 - 🔬 **New MAM research**
 - 🧪 **New alternate recipes** (from hard drives)
 - 🚀 **Project Assembly / Space Elevator** phase changes & parts delivered
-- ⚡ **Power** — new generators, plus a grid‑wide **max production vs. max
-  consumption** balance so you can see at a glance if more power is needed
+- ⚡ **Power** — new generators, plus a circuit‑aware **max production vs.
+  max consumption** balance so disconnected / unpowered structures do not
+  inflate the numbers
 - 🚆 **Logistics** — trains, freight wagons, train stations, truck stations, vehicles, drones
 - 🏭 **Factories** — production & extraction building counts
-- 📦 **Storage** containers
+- 📦 **Storage** containers plus Dimensional Depot Uploader counts and, when
+  available from the save data, current depot contents
 
 > Building/recipe coverage is a curated subset of the most common classes.
 > Unknown classes degrade gracefully to a prettified name. Deeper per‑factory
@@ -329,12 +331,14 @@ whether the factory needs more power before expanding:
   serialized capacity (e.g. every generator idle/unfueled), it falls back to
   rated output × generator count.
 - **Max consumption** — the most the world would draw if every machine ran at
-  once, summed from each consumer's serialized target consumption.
+  once, summed from each consumer's serialized target consumption on connected
+  power circuits only.
 - **Balance** — production − consumption. A surplus shows ✅; a deficit shows
   ⚠️ _more power needed_.
 
 > Values come straight from the save's `FGPowerInfoComponent` data. Totals are
-> summed across every power grid; when there is more than one independent grid
+> summed per connected power circuit so stray components like unpowered drop
+> pods do not inflate the totals. When there is more than one independent grid
 > the count is noted (a global balance can hide a shortfall on a single grid).
 
 ## How it works

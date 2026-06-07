@@ -15,6 +15,7 @@ function baseState(overrides: Partial<WorldState> = {}): WorldState {
     schematics: [],
     gamePhase: { deliveredToTarget: [] },
     power: { generators: [], maxProductionMW: 0, maxConsumptionMW: 0, circuitCount: 0 },
+    storage: { dimensionalDepotUploaders: 0, dimensionalDepotItems: [] },
     logistics: {
       locomotives: 0,
       freightWagons: 0,

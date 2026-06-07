@@ -6,11 +6,13 @@ import type {
   BuildingCount,
   LogisticsState,
   PowerState,
+  StorageState,
 } from '../model.js';
 import {
   GENERATOR_NAMES,
   GENERATOR_RATED_MW,
   LOGISTICS_CLASS_IDS,
+  itemName,
   TRACKED_BUILDING_IDS,
   buildingCategory,
   buildingName,
@@ -21,6 +23,7 @@ export interface BuildingsInfo {
   buildings: BuildingCount[];
   power: PowerState;
   logistics: LogisticsState;
+  storage: StorageState;
 }
 
 export function extractBuildings(objects: SaveObject[]): BuildingsInfo {
@@ -44,8 +47,9 @@ export function extractBuildings(objects: SaveObject[]): BuildingsInfo {
   const power = extractPower(objects, generators);
 
   const logistics = extractLogistics(classCounts);
+  const storage = extractStorage(objects, classCounts);
 
-  return { buildings, power, logistics };
+  return { buildings, power, logistics, storage };
 }
 
 /**
@@ -60,6 +64,7 @@ export function extractBuildings(objects: SaveObject[]): BuildingsInfo {
  * objects tells us how many independent grids exist.
  */
 function extractPower(objects: SaveObject[], generators: BuildingCount[]): PowerState {
+  const connectedOwners = collectConnectedOwners(objects);
   let maxProductionMW = 0;
   let maxConsumptionMW = 0;
   let circuitCount = 0;
@@ -71,6 +76,9 @@ function extractPower(objects: SaveObject[], generators: BuildingCount[]): Power
       continue;
     }
     if (id !== 'FGPowerInfoComponent') continue;
+
+    const owner = ownerPath(obj.instanceName);
+    if (!connectedOwners.has(owner)) continue;
 
     const props = obj.properties as Record<string, any> | undefined;
     const capacity = props?.mDynamicProductionCapacity?.value;
@@ -96,6 +104,28 @@ function extractPower(objects: SaveObject[], generators: BuildingCount[]): Power
   };
 }
 
+/** Build a set of owner object paths that are attached to at least one power circuit. */
+function collectConnectedOwners(objects: SaveObject[]): Set<string> {
+  const connectedOwners = new Set<string>();
+  for (const obj of objects) {
+    if (shortId(obj.typePath) !== 'FGPowerCircuit') continue;
+    const props = obj.properties as Record<string, any> | undefined;
+    const members = Array.isArray(props?.mComponents?.values) ? props.mComponents.values : [];
+    for (const member of members) {
+      const pathName = typeof member?.pathName === 'string' ? member.pathName : undefined;
+      if (!pathName) continue;
+      connectedOwners.add(ownerPath(pathName));
+    }
+  }
+  return connectedOwners;
+}
+
+/** Strip a component path down to its owning actor path. */
+function ownerPath(path: string): string {
+  const idx = path.lastIndexOf('.');
+  return idx >= 0 ? path.slice(0, idx) : path;
+}
+
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
@@ -115,6 +145,92 @@ function extractLogistics(counts: Map<string, number>): LogisticsState {
     droneStations: sumClasses(counts, LOGISTICS_CLASS_IDS.droneStation),
     drones: sumClasses(counts, LOGISTICS_CLASS_IDS.drone),
   };
+}
+
+function extractStorage(objects: SaveObject[], counts: Map<string, number>): StorageState {
+  const dimensionalDepotUploaders = sumClasses(counts, ['Build_CentralStorage', 'Desc_CentralStorage']);
+  return {
+    dimensionalDepotUploaders,
+    dimensionalDepotItems: extractCentralStorageItems(objects),
+  };
+}
+
+function extractCentralStorageItems(objects: SaveObject[]): StorageState['dimensionalDepotItems'] {
+  const items = new Map<string, number>();
+  const seen = new WeakSet<object>();
+  for (const obj of objects) {
+    if (shortId(obj.typePath) !== 'FGCentralStorageSubsystem') continue;
+    collectItemAmounts(obj.properties, items, seen);
+  }
+  return [...items.entries()]
+    .map(([itemId, amount]) => ({ itemId, name: itemName(itemId), amount: round1(amount) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function collectItemAmounts(value: unknown, items: Map<string, number>, seen: WeakSet<object>): void {
+  if (!value || typeof value !== 'object') return;
+  if (seen.has(value as object)) return;
+  seen.add(value as object);
+  if (Array.isArray(value)) {
+    for (const entry of value) collectItemAmounts(entry, items, seen);
+    return;
+  }
+
+  const record = value as Record<string, unknown>;
+  const itemId = extractItemId(record);
+  const amount = extractAmount(record);
+  if (itemId && typeof amount === 'number' && amount > 0) {
+    items.set(itemId, (items.get(itemId) ?? 0) + amount);
+  }
+
+  for (const nested of Object.values(record)) {
+    collectItemAmounts(nested, items, seen);
+  }
+}
+
+function extractItemId(record: Record<string, unknown>): string | undefined {
+  const candidates = [
+    record.itemId,
+    record.ItemId,
+    record.itemClass,
+    record.ItemClass,
+    record.mItemClass,
+    record.mItem,
+    record.pathName,
+  ];
+  for (const candidate of candidates) {
+    const id = normalizeItemId(candidate);
+    if (id) return id;
+  }
+  return undefined;
+}
+
+function extractAmount(record: Record<string, unknown>): number | undefined {
+  const candidates = [
+    record.amount,
+    record.Amount,
+    record.count,
+    record.Count,
+    record.quantity,
+    record.Quantity,
+    record.mAmount,
+    record.mCount,
+    record.mQuantity,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
+    if (typeof candidate === 'object' && candidate && 'value' in candidate) {
+      const value = (candidate as { value?: unknown }).value;
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+    }
+  }
+  return undefined;
+}
+
+function normalizeItemId(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const short = value.match(/(Desc_[A-Za-z0-9_]+|BP_[A-Za-z0-9_]+|Build_[A-Za-z0-9_]+)/)?.[1];
+  return short;
 }
 
 /** Re-export so other modules can reference the generator name map if needed. */

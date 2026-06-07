@@ -15,7 +15,7 @@ export function extractWorldState(save: SatisfactorySave): WorldState {
   const header = extractHeader(save);
   const { schematics, activeSchematicId } = extractSchematics(objects);
   const gamePhase = extractGamePhase(objects);
-  const { buildings, power, logistics } = extractBuildings(objects);
+  const { buildings, power, logistics, storage } = extractBuildings(objects);
 
   return {
     schemaVersion: WORLD_STATE_SCHEMA_VERSION,
@@ -30,6 +30,7 @@ export function extractWorldState(save: SatisfactorySave): WorldState {
     gamePhase,
     power,
     logistics,
+    storage,
     buildings,
   };
 }

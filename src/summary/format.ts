@@ -120,10 +120,30 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
 
   // --- Storage ---
   const storageDeltas = delta.buildingDeltas.filter((b) => b.category === 'storage' && b.delta !== 0);
+  const storageLines: string[] = [];
   if (storageDeltas.length > 0) {
-    const list = renderList(storageDeltas.map((b) => `${signed(b.delta)} ${b.name} (now ${b.after})`));
-    lines.push(`\n📦 **Storage**\n${list}`);
-    fields.push({ name: '📦 Storage', value: list });
+    storageLines.push(renderList(storageDeltas.map((b) => `${signed(b.delta)} ${b.name} (now ${b.after})`)));
+  }
+
+  if (delta.storage.dimensionalDepotUploaders > 0) {
+    storageLines.push(
+      `• Dimensional Depot Uploaders: **${delta.storage.dimensionalDepotUploaders}**`,
+    );
+  }
+  if (delta.storage.dimensionalDepotItems.length > 0) {
+    storageLines.push(
+      renderList(
+        delta.storage.dimensionalDepotItems.map((item) => `${num(item.amount)}× ${item.name}`),
+      ),
+    );
+  } else if (delta.storage.dimensionalDepotUploaders > 0) {
+    storageLines.push('• Dimensional Depot contents: empty / unavailable');
+  }
+
+  if (storageLines.length > 0) {
+    const block = storageLines.join('\n');
+    lines.push(`\n📦 **Storage**\n${block}`);
+    fields.push({ name: '📦 Storage', value: block });
   }
 
   if (delta.isEmpty) {
