@@ -1,5 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
+import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import type { AppConfig } from '../config.js';
 
@@ -57,13 +58,70 @@ export function buildServerApiCandidates(url?: string): string[] {
     'https://127.0.0.1:7777/api/v1',
     'https://localhost:7777/api/v1',
     'https://host.docker.internal:7777/api/v1',
+    'https://gateway.docker.internal:7777/api/v1',
+    'https://host.containers.internal:7777/api/v1',
+    'https://satisfactory:7777/api/v1',
+    'https://satisfactory-server:7777/api/v1',
+    'https://dedicated-server:7777/api/v1',
+    'https://factoryserver:7777/api/v1',
     'http://127.0.0.1:7777/api/v1',
     'http://localhost:7777/api/v1',
     'http://host.docker.internal:7777/api/v1',
+    'http://gateway.docker.internal:7777/api/v1',
+    'http://host.containers.internal:7777/api/v1',
+    'http://satisfactory:7777/api/v1',
+    'http://satisfactory-server:7777/api/v1',
+    'http://dedicated-server:7777/api/v1',
+    'http://factoryserver:7777/api/v1',
   ];
   for (const endpoint of defaults) add(endpoint);
 
+  const gateway = detectLinuxDefaultGateway();
+  if (gateway) {
+    add(`https://${gateway}:7777/api/v1`);
+    add(`http://${gateway}:7777/api/v1`);
+  }
+
+  const customHosts = parseDiscoveryHosts(process.env.SERVER_API_DISCOVERY_HOSTS);
+  for (const host of customHosts) {
+    if (/^https?:\/\//i.test(host)) {
+      add(host);
+      continue;
+    }
+    add(`https://${host}`);
+    add(`http://${host}`);
+  }
+
   return [...out];
+}
+
+function parseDiscoveryHosts(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Best-effort Linux default-gateway detection for container->host probing. */
+function detectLinuxDefaultGateway(): string | undefined {
+  try {
+    const route = readFileSync('/proc/net/route', 'utf8');
+    const lines = route.split(/\r?\n/);
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i].trim().split(/\s+/);
+      if (parts.length < 3) continue;
+      const destination = parts[1];
+      const gatewayHex = parts[2];
+      if (destination !== '00000000' || gatewayHex.length !== 8) continue;
+      const bytes = gatewayHex.match(/../g);
+      if (!bytes) continue;
+      return bytes.reverse().map((b) => Number.parseInt(b, 16)).join('.');
+    }
+  } catch {
+    // Non-Linux hosts or restricted containers won't expose /proc/net/route.
+  }
+  return undefined;
 }
 
 export async function queryServerState(config: Pick<AppConfig, 'serverApi'>): Promise<ServerQueryResult> {
@@ -167,6 +225,7 @@ function normalizeEndpoint(raw: string): string | undefined {
   try {
     const url = new URL(trimmed);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+    if (!url.port) url.port = '7777';
     if (!url.pathname || url.pathname === '/') {
       url.pathname = '/api/v1';
     }

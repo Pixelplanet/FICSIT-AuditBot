@@ -23,6 +23,8 @@ describe('server API endpoint discovery', () => {
     const candidates = buildServerApiCandidates(undefined);
     expect(candidates).toContain('https://127.0.0.1:7777/api/v1');
     expect(candidates).toContain('https://localhost:7777/api/v1');
+    expect(candidates).toContain('https://satisfactory:7777/api/v1');
+    expect(candidates).toContain('http://satisfactory-server:7777/api/v1');
     expect(candidates).toContain('http://host.docker.internal:7777/api/v1');
   });
 
@@ -30,5 +32,15 @@ describe('server API endpoint discovery', () => {
     const candidates = buildServerApiCandidates('192.168.1.10:7777');
     expect(candidates[0]).toBe('https://192.168.1.10:7777/api/v1');
     expect(candidates[1]).toBe('http://192.168.1.10:7777/api/v1');
+  });
+
+  it('supports custom discovery hosts via env var', () => {
+    process.env.SERVER_API_DISCOVERY_HOSTS = 'game-a, game-b:7777';
+    const candidates = buildServerApiCandidates(undefined);
+    expect(candidates).toContain('https://game-a:7777/api/v1');
+    expect(candidates).toContain('http://game-a:7777/api/v1');
+    expect(candidates).toContain('https://game-b:7777/api/v1');
+    expect(candidates).toContain('http://game-b:7777/api/v1');
+    delete process.env.SERVER_API_DISCOVERY_HOSTS;
   });
 });

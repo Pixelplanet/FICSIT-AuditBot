@@ -120,6 +120,7 @@ Edit `.env`:
 | `SERVER_API_TOKEN` | _(blank)_ | Optional API bearer token (`server.GenerateAPIToken`) |
 | `SERVER_API_ALLOW_INSECURE_TLS` | `true` | Allow self-signed dedicated-server certificate |
 | `SERVER_API_TIMEOUT_MS` | `5000` | Timeout for server API requests |
+| `SERVER_API_DISCOVERY_HOSTS` | _(blank)_ | Optional comma-separated host list to probe in auto-detect mode (e.g. `satisfactory,game-server`) |
 | `DATA_DIR` | _(unset)_ | Single data root; `state/` + `docs/` default under it (`/data` in the image) |
 | `DOCS_PATH` | _(auto)_ | Game `Docs.json`/`en-US.json` (file, folder, or install root); defaults to `<DATA_DIR>/docs` |
 | `STATE_DIR` | `./state` | Where snapshots + `db.json` + `config.json` are kept; defaults to `<DATA_DIR>/state` |
