@@ -26,7 +26,7 @@ export interface BuildingsInfo {
   storage: StorageState;
 }
 
-export function extractBuildings(objects: SaveObject[]): BuildingsInfo {
+export function extractBuildings(objects: SaveObject[], decompressedBody?: Uint8Array): BuildingsInfo {
   // Count every class once.
   const classCounts = new Map<string, number>();
   for (const obj of objects) {
@@ -47,7 +47,7 @@ export function extractBuildings(objects: SaveObject[]): BuildingsInfo {
   const power = extractPower(objects, generators);
 
   const logistics = extractLogistics(classCounts);
-  const storage = extractStorage(objects, classCounts);
+  const storage = extractStorage(objects, classCounts, decompressedBody);
 
   return { buildings, power, logistics, storage };
 }
@@ -155,24 +155,111 @@ function extractLogistics(counts: Map<string, number>): LogisticsState {
   };
 }
 
-function extractStorage(objects: SaveObject[], counts: Map<string, number>): StorageState {
+function extractStorage(
+  objects: SaveObject[],
+  counts: Map<string, number>,
+  decompressedBody?: Uint8Array,
+): StorageState {
   const dimensionalDepotUploaders = sumClasses(counts, ['Build_CentralStorage', 'Desc_CentralStorage']);
   return {
     dimensionalDepotUploaders,
-    dimensionalDepotItems: extractCentralStorageItems(objects),
+    dimensionalDepotItems: extractCentralStorageItems(objects, decompressedBody),
   };
 }
 
-function extractCentralStorageItems(objects: SaveObject[]): StorageState['dimensionalDepotItems'] {
+function extractCentralStorageItems(
+  objects: SaveObject[],
+  decompressedBody?: Uint8Array,
+): StorageState['dimensionalDepotItems'] {
   const items = new Map<string, number>();
   const seen = new WeakSet<object>();
   for (const obj of objects) {
     if (shortId(obj.typePath) !== 'FGCentralStorageSubsystem') continue;
     collectItemAmounts(obj.properties, items, seen);
   }
+
+  // Some saves keep dimensional-depot amounts in opaque payload sections.
+  // Fall back to decoding ItemAmounts blocks directly from the decompressed body.
+  if (items.size === 0 && decompressedBody && decompressedBody.length > 0) {
+    return extractCentralStorageItemsFromRawBody(decompressedBody);
+  }
+
   return [...items.entries()]
     .map(([itemId, amount]) => ({ itemId, name: itemName(itemId), amount: round1(amount) }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function extractCentralStorageItemsFromRawBody(
+  decompressedBody: Uint8Array,
+): StorageState['dimensionalDepotItems'] {
+  const buffer = Buffer.from(decompressedBody);
+  const text = buffer.toString('latin1');
+  const anchorOffsets = findAll(text, 'ItemAmounts');
+  if (anchorOffsets.length === 0) return [];
+
+  const bestWindow = new Map<string, number>();
+  let bestScore = -1;
+
+  for (const anchor of anchorOffsets) {
+    const windowItems = decodeItemAmountsWindow(buffer, text, anchor, 16_384);
+    if (windowItems.size === 0) continue;
+
+    const total = [...windowItems.values()].reduce((sum, value) => sum + value, 0);
+    const score = windowItems.size * 1_000_000 + Math.min(total, 999_999);
+    if (score > bestScore) {
+      bestScore = score;
+      bestWindow.clear();
+      for (const [itemId, amount] of windowItems.entries()) {
+        bestWindow.set(itemId, amount);
+      }
+    }
+  }
+
+  return [...bestWindow.entries()]
+    .map(([itemId, amount]) => ({ itemId, name: itemName(itemId), amount: round1(amount) }))
+    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
+}
+
+function decodeItemAmountsWindow(
+  bytes: Buffer,
+  text: string,
+  anchor: number,
+  maxSpan: number,
+): Map<string, number> {
+  const end = Math.min(text.length, anchor + maxSpan);
+  const slice = text.slice(anchor, end);
+  const matches = slice.matchAll(/\/Game\/FactoryGame\/[^\x00\n\r]{0,240}\/(Desc_[A-Za-z0-9_]+)\.\1_C/g);
+  const items = new Map<string, number>();
+
+  for (const match of matches) {
+    if (match.index === undefined) continue;
+    const itemId = match[1];
+    const path = match[0];
+    const absolute = anchor + match.index;
+    const amountPos = absolute + path.length + 1;
+    if (amountPos < 0 || amountPos + 4 > bytes.length) continue;
+
+    const amount = bytes.readInt32LE(amountPos);
+    if (amount <= 0 || amount > 2_000_000_000) continue;
+
+    // Keep the largest amount encountered for each item in this ItemAmounts block.
+    const previous = items.get(itemId) ?? 0;
+    if (amount > previous) items.set(itemId, amount);
+  }
+
+  return items;
+}
+
+function findAll(haystack: string, needle: string): number[] {
+  const offsets: number[] = [];
+  let from = 0;
+  while (from < haystack.length) {
+    const idx = haystack.indexOf(needle, from);
+    if (idx < 0) break;
+    offsets.push(idx);
+    from = idx + needle.length;
+  }
+  return offsets;
 }
 
 function collectItemAmounts(value: unknown, items: Map<string, number>, seen: WeakSet<object>): void {

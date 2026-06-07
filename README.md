@@ -1,4 +1,4 @@
-# Satisfactory Save Summary Bot
+# FICSIT AuditBot
 
 Watches your Satisfactory save files, compares each new **tracked** save
 (`*_continue.sav` by default) against the previous one, and posts a summary of

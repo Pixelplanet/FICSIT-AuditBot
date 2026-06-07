@@ -9,6 +9,11 @@ import {
 /** A parsed save object can be either a placed entity or an attached component. */
 export type SaveObject = SaveEntity | SaveComponent;
 
+/** Parsed save plus optional raw decompressed body bytes. */
+export type ParsedSave = SatisfactorySave & {
+  decompressedBody?: Uint8Array;
+};
+
 /**
  * Parse a Satisfactory `.sav` file from disk into the parser's JSON structure.
  * Uses `throwErrors: false` so partially-unparseable data is tolerated rather
@@ -21,10 +26,25 @@ export async function parseSaveFile(filePath: string): Promise<SatisfactorySave>
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength,
   );
-  return Parser.ParseSave(filePath, arrayBuffer, { throwErrors: false });
+  let decompressed: ArrayBufferLike | undefined;
+  const save = Parser.ParseSave(filePath, arrayBuffer, {
+    throwErrors: false,
+    onDecompressedSaveBody: (body) => {
+      decompressed = body;
+    },
+  }) as ParsedSave;
+  if (decompressed) {
+    save.decompressedBody = new Uint8Array(decompressed);
+  }
+  return save;
 }
 
 /** Flatten every level into a single list of save objects. */
 export function allObjects(save: SatisfactorySave): SaveObject[] {
   return Object.values(save.levels).flatMap((level) => level.objects);
+}
+
+/** Get the optional raw decompressed save body captured during parse. */
+export function decompressedBodyOf(save: SatisfactorySave): Uint8Array | undefined {
+  return (save as ParsedSave).decompressedBody;
 }

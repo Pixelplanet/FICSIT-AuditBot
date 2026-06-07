@@ -31,7 +31,7 @@ async function main(): Promise<void> {
 }
 
 function logStartup(config: AppConfig): void {
-  console.log('Satisfactory Save Summary Bot');
+  console.log('FICSIT AuditBot');
   console.log(`  Saves dir:       ${config.savesDir}`);
   console.log(`  Canonical:       *${config.canonicalSaveSuffix}`);
   console.log(

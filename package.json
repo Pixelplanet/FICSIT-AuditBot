@@ -1,7 +1,7 @@
 {
-  "name": "satisfactory-save-summary-bot",
+  "name": "ficsit-auditbot",
   "version": "0.1.0",
-  "description": "Watches Satisfactory save files, diffs them, and posts a summary of what changed to Discord.",
+  "description": "Watches Satisfactory save files, diffs them, and posts a FICSIT factory progress summary to Discord.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

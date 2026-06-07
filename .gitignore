@@ -18,6 +18,7 @@ dist/
 docs/*.json
 !docs/bundled-en-US.json
 docs/CommunityResources/
+/docs/backups/
 tmp-test/
 
 # Environment
