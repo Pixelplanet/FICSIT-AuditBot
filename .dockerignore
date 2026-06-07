@@ -11,6 +11,7 @@ docs/CommunityResources/*
 !docs/CommunityResources/Docs/
 docs/CommunityResources/Docs/*
 !docs/CommunityResources/Docs/en-US.json
+!docs/bundled-en-US.json
 .env
 .env.local
 .git

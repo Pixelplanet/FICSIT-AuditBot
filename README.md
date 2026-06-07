@@ -181,11 +181,11 @@ file (or the whole `CommunityResources` folder) into the `docs/` subfolder of
 the data volume (`/data/docs`). Use **Reload game data** in the web UI after
 changing it.
 
-The Docker image also ships with a bundled `en-US.json` snapshot and seeds
-`/data/docs/en-US.json` automatically on first run if your data folder has no
-JSON docs yet. This makes first startup work out of the box. You should still
-replace it with the latest file from your game's `CommunityResources/Docs`
-folder so names/unlocks stay current after game updates.
+The Docker image also seeds `/data/docs/en-US.json` on first run if your data
+folder has no JSON docs yet. This guarantees startup without manual docs setup,
+but you should replace that seeded file with the latest `en-US.json` (or
+`Docs.json`) from your game's `CommunityResources/Docs` folder so
+names/unlocks stay current after game updates.
 
 > Space Elevator phase **requirements** are not in the game's data dump, so the
 > base amounts are maintained as a small curated table in the code. They are

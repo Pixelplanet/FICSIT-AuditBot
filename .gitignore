@@ -16,6 +16,7 @@ dist/
 
 # Game documentation files (large; user-supplied). Keep the folder's README.
 docs/*.json
+!docs/bundled-en-US.json
 docs/CommunityResources/
 tmp-test/
 

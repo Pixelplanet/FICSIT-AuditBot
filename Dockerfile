@@ -23,7 +23,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy compiled output and static web assets.
 COPY --from=build /app/dist ./dist
 COPY public ./public
-COPY docs/CommunityResources/Docs/en-US.json /opt/ficsit-docs/en-US.json
+COPY docs/bundled-en-US.json /opt/ficsit-docs/en-US.json
 COPY docker-entrypoint.sh /usr/local/bin/ficsit-entrypoint.sh
 RUN chmod +x /usr/local/bin/ficsit-entrypoint.sh
 
