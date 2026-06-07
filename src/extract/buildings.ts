@@ -136,10 +136,18 @@ function sumClasses(counts: Map<string, number>, ids: readonly string[]): number
 
 function extractLogistics(counts: Map<string, number>): LogisticsState {
   return {
+    railroadTracks: sumClasses(counts, LOGISTICS_CLASS_IDS.railroadTrack),
+    railroadBlockSignals: sumClasses(counts, LOGISTICS_CLASS_IDS.railroadBlockSignal),
+    railroadSwitchControls: sumClasses(counts, LOGISTICS_CLASS_IDS.railroadSwitchControl),
     locomotives: sumClasses(counts, LOGISTICS_CLASS_IDS.locomotive),
     freightWagons: sumClasses(counts, LOGISTICS_CLASS_IDS.freightWagon),
     trainStations: sumClasses(counts, LOGISTICS_CLASS_IDS.trainStation),
     freightPlatforms: sumClasses(counts, LOGISTICS_CLASS_IDS.freightPlatform),
+    vehiclePathUniversal: sumClasses(counts, LOGISTICS_CLASS_IDS.vehiclePathUniversal),
+    vehiclePathTruck: sumClasses(counts, LOGISTICS_CLASS_IDS.vehiclePathTruck),
+    vehiclePathTractor: sumClasses(counts, LOGISTICS_CLASS_IDS.vehiclePathTractor),
+    vehiclePathExplorer: sumClasses(counts, LOGISTICS_CLASS_IDS.vehiclePathExplorer),
+    vehiclePathFactoryCart: sumClasses(counts, LOGISTICS_CLASS_IDS.vehiclePathFactoryCart),
     truckStations: sumClasses(counts, LOGISTICS_CLASS_IDS.truckStation),
     vehicles: sumClasses(counts, LOGISTICS_CLASS_IDS.vehicle),
     droneStations: sumClasses(counts, LOGISTICS_CLASS_IDS.droneStation),

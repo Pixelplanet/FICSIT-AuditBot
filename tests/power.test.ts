@@ -40,4 +40,26 @@ describe('extractBuildings power accounting', () => {
     expect(info.power.maxConsumptionMW).toBe(50);
     expect(info.power.circuitCount).toBe(2);
   });
+
+  it('counts railroad tracks and vehicle paths as logistics buildings', () => {
+    const objects = [
+      obj('/Game/FactoryGame/Buildable/Factory/Train/Track/Build_RailroadTrack.Build_RailroadTrack_C', 'Persistent_Level:PersistentLevel.Build_RailroadTrack_C_1'),
+      obj('/Game/FactoryGame/Buildable/Factory/Train/Track/Build_RailroadTrackIntegrated.Build_RailroadTrackIntegrated_C', 'Persistent_Level:PersistentLevel.Build_RailroadTrackIntegrated_C_1'),
+      obj('/Game/FactoryGame/Buildable/Factory/Train/Station/Build_TrainStation.Build_TrainStation_C', 'Persistent_Level:PersistentLevel.Build_TrainStation_C_1'),
+      obj('/Game/FactoryGame/Buildable/Vehicle/VehiclePath/Build_VehiclePath_Universal.Build_VehiclePath_Universal_C', 'Persistent_Level:PersistentLevel.Build_VehiclePath_Universal_C_1'),
+      obj('/Game/FactoryGame/Buildable/Vehicle/Truck/Build_VehiclePath_Truck.Build_VehiclePath_Truck_C', 'Persistent_Level:PersistentLevel.Build_VehiclePath_Truck_C_1'),
+      obj('/Game/FactoryGame/Buildable/Vehicle/Tractor/Build_VehiclePath_Tractor.Build_VehiclePath_Tractor_C', 'Persistent_Level:PersistentLevel.Build_VehiclePath_Tractor_C_1'),
+      obj('/Game/FactoryGame/Buildable/Vehicle/Explorer/Build_VehiclePath_Explorer.Build_VehiclePath_Explorer_C', 'Persistent_Level:PersistentLevel.Build_VehiclePath_Explorer_C_1'),
+      obj('/Game/FactoryGame/Buildable/Vehicle/Golfcart/Build_VehiclePath_FactoryCart.Build_VehiclePath_FactoryCart_C', 'Persistent_Level:PersistentLevel.Build_VehiclePath_FactoryCart_C_1'),
+    ];
+
+    const info = extractBuildings(objects);
+    expect(info.logistics.railroadTracks).toBe(2);
+    expect(info.logistics.trainStations).toBe(1);
+    expect(info.logistics.vehiclePathUniversal).toBe(1);
+    expect(info.logistics.vehiclePathTruck).toBe(1);
+    expect(info.logistics.vehiclePathTractor).toBe(1);
+    expect(info.logistics.vehiclePathExplorer).toBe(1);
+    expect(info.logistics.vehiclePathFactoryCart).toBe(1);
+  });
 });

@@ -75,10 +75,18 @@ export interface ItemAmount {
 
 /** Logistics tallies (trains, trucks and their stations). */
 export interface LogisticsState {
+  railroadTracks: number;
+  railroadBlockSignals: number;
+  railroadSwitchControls: number;
   locomotives: number;
   freightWagons: number;
   trainStations: number;
   freightPlatforms: number;
+  vehiclePathUniversal: number;
+  vehiclePathTruck: number;
+  vehiclePathTractor: number;
+  vehiclePathExplorer: number;
+  vehiclePathFactoryCart: number;
   truckStations: number;
   vehicles: number;
   droneStations: number;

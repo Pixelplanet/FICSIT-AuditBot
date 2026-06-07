@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { diffWorldStates } from '../src/diff/compare.js';
 import { formatSummary } from '../src/summary/format.js';
-import { WORLD_STATE_SCHEMA_VERSION, type PowerState, type WorldState } from '../src/model.js';
+import { WORLD_STATE_SCHEMA_VERSION, type LogisticsState, type PowerState, type WorldState } from '../src/model.js';
 
 function baseState(overrides: Partial<WorldState> = {}): WorldState {
   return {
@@ -16,16 +16,7 @@ function baseState(overrides: Partial<WorldState> = {}): WorldState {
     gamePhase: { deliveredToTarget: [] },
     power: { generators: [], maxProductionMW: 0, maxConsumptionMW: 0, circuitCount: 0 },
     storage: { dimensionalDepotUploaders: 0, dimensionalDepotItems: [] },
-    logistics: {
-      locomotives: 0,
-      freightWagons: 0,
-      trainStations: 0,
-      freightPlatforms: 0,
-      truckStations: 0,
-      vehicles: 0,
-      droneStations: 0,
-      drones: 0,
-    },
+    logistics: logistics(),
     buildings: [],
     ...overrides,
   };
@@ -79,6 +70,22 @@ describe('diffWorldStates', () => {
     expect(delta.buildingDeltas).toHaveLength(1);
     expect(delta.buildingDeltas[0].delta).toBe(3);
     expect(delta.buildingDeltas[0].after).toBe(5);
+  });
+
+  it('includes rail and vehicle path logistics in the summary', () => {
+    const before = baseState();
+    const after = baseState({
+      buildings: [
+        { id: 'Build_RailroadTrack', name: 'Railroad Track', category: 'logistics', count: 18 },
+        { id: 'Build_RailroadBlockSignal', name: 'Railroad Block Signal', category: 'logistics', count: 6 },
+        { id: 'Build_VehiclePath_Universal', name: 'Universal Vehicle Path', category: 'logistics', count: 2 },
+        { id: 'Build_VehiclePath_Truck', name: 'Truck Path', category: 'logistics', count: 1 },
+      ],
+    });
+    const { text } = formatSummary(diffWorldStates(before, after), { includeAda: false });
+    expect(text).toContain('Logistics');
+    expect(text).toContain('Railroad Track');
+    expect(text).toContain('Truck Path');
   });
 
   it('diffs phase deliveries only when target phase is unchanged', () => {
@@ -161,6 +168,28 @@ describe('diffWorldStates', () => {
 
 function power(overrides: Partial<PowerState> = {}): PowerState {
   return { generators: [], maxProductionMW: 0, maxConsumptionMW: 0, circuitCount: 0, ...overrides };
+}
+
+function logistics(overrides: Partial<LogisticsState> = {}): LogisticsState {
+  return {
+    railroadTracks: 0,
+    railroadBlockSignals: 0,
+    railroadSwitchControls: 0,
+    locomotives: 0,
+    freightWagons: 0,
+    trainStations: 0,
+    freightPlatforms: 0,
+    vehiclePathUniversal: 0,
+    vehiclePathTruck: 0,
+    vehiclePathTractor: 0,
+    vehiclePathExplorer: 0,
+    vehiclePathFactoryCart: 0,
+    truckStations: 0,
+    vehicles: 0,
+    droneStations: 0,
+    drones: 0,
+    ...overrides,
+  };
 }
 
 describe('power delta', () => {

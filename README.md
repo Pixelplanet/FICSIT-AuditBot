@@ -22,7 +22,8 @@ All summary generation happens **in the application** (no AI at runtime).
 - ⚡ **Power** — new generators, plus a circuit‑aware **max production vs.
   max consumption** balance so disconnected / unpowered structures do not
   inflate the numbers
-- 🚆 **Logistics** — trains, freight wagons, train stations, truck stations, vehicles, drones
+- 🚆 **Logistics** — trains, freight wagons, rail tracks, train stations, truck stations,
+  vehicle paths, vehicles, drones
 - 🏭 **Factories** — production & extraction building counts
 - 📦 **Storage** containers plus Dimensional Depot Uploader counts and, when
   available from the save data, current depot contents
@@ -255,7 +256,7 @@ A simple web UI is served at <http://localhost:8080> (configurable via
 - **Compare any two saves** from the saves folder to see the resulting summary.
 - **Send a test** of the current preview to Discord on demand.
 - **Process now** to run the live pipeline against the current save.
-- View **status** (baseline, last result, watcher state).
+- View **status** (baseline, last result, watcher state, dedicated-server API state).
 
 Secrets (webhook URL, bot token) are never sent back to the browser — the UI
 only shows whether they are set, and edits keep the existing value unless you
@@ -369,7 +370,7 @@ npm test                                                  # unit tests
 
 - Per‑factory **theoretical max output** for higher‑tier parts (recipe rates via the game's `Docs.json`).
 - Fuller friendly‑name coverage for items/buildings.
-- Named train/truck routes and per‑station throughput.
+- Named train/vehicle routes, rail infrastructure, and per‑station throughput.
 - Optional "ignore overnight server restart" handling.
 
 ## Credits

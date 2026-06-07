@@ -196,9 +196,13 @@ async function loadStatus() {
       ['Last processed', s.baseline.lastProcessedAt ? new Date(s.baseline.lastProcessedAt).toLocaleString() : '—'],
       ['Last result', s.lastResult ? `${s.lastResult.status} — ${s.lastResult.message}` : '—'],
     ];
-    document.getElementById('statusTable').innerHTML = rows
+    const tableHtml = rows
       .map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(String(v))}</td></tr>`)
       .join('');
+    for (const id of ['statusTable', 'apiStatusTable']) {
+      const table = document.getElementById(id);
+      if (table) table.innerHTML = tableHtml;
+    }
 
     const pill = document.getElementById('statusPill');
     if (s.postToDiscord && !s.discordReady) {

@@ -158,15 +158,33 @@ export const STORAGE_NAMES: Record<string, string> = {
 
 /** Logistics class ids that we count individually in {@link LogisticsState}. */
 export const LOGISTICS_CLASS_IDS = {
+  railroadTrack: ['Build_RailroadTrack', 'Build_RailroadTrackIntegrated'],
+  railroadBlockSignal: ['Build_RailroadBlockSignal'],
+  railroadSwitchControl: ['Build_RailroadSwitchControl'],
   locomotive: ['Build_Locomotive'],
   freightWagon: ['Build_FreightWagon'],
   trainStation: ['Build_TrainStation'],
-  freightPlatform: ['Build_TrainDockingStation', 'Build_TrainPlatformCargo'],
+  freightPlatform: [
+    'Build_TrainDockingStation',
+    'Build_TrainDockingStationLiquid',
+    'Build_TrainPlatformCargo',
+    'Build_TrainPlatformEmpty',
+    'Build_TrainPlatformEmpty_02',
+  ],
+  vehiclePathUniversal: ['Build_VehiclePath_Universal'],
+  vehiclePathTruck: ['Build_VehiclePath_Truck'],
+  vehiclePathTractor: ['Build_VehiclePath_Tractor'],
+  vehiclePathExplorer: ['Build_VehiclePath_Explorer'],
+  vehiclePathFactoryCart: ['Build_VehiclePath_FactoryCart'],
   truckStation: ['Build_TruckStation'],
   vehicle: ['BP_Truck', 'BP_Tractor', 'BP_Explorer', 'BP_Cyberwagon'],
   droneStation: ['Build_DroneStation'],
   drone: ['BP_DroneTransport'],
 } as const;
+
+const LOGISTICS_BUILDING_IDS = new Set(
+  Object.values(LOGISTICS_CLASS_IDS).reduce<string[]>((all, ids) => all.concat(ids), []),
+);
 
 /** Resolve a friendly building name across all known maps. */
 export function buildingName(id: string): string {
@@ -186,6 +204,7 @@ export function buildingCategory(id: string): BuildingCategory {
   if (id in PRODUCTION_NAMES) return 'production';
   if (id in EXTRACTION_NAMES) return 'extraction';
   if (id in STORAGE_NAMES) return 'storage';
+  if (LOGISTICS_BUILDING_IDS.has(id)) return 'logistics';
   return 'other';
 }
 
@@ -195,6 +214,7 @@ export const TRACKED_BUILDING_IDS = new Set<string>([
   ...Object.keys(PRODUCTION_NAMES),
   ...Object.keys(EXTRACTION_NAMES),
   ...Object.keys(STORAGE_NAMES),
+  ...LOGISTICS_BUILDING_IDS,
 ]);
 
 // ---------------------------------------------------------------------------
