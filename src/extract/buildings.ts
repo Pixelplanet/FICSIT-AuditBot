@@ -9,6 +9,7 @@ import type {
 } from '../model.js';
 import {
   GENERATOR_NAMES,
+  GENERATOR_RATED_MW,
   LOGISTICS_CLASS_IDS,
   TRACKED_BUILDING_IDS,
   buildingCategory,
@@ -39,13 +40,64 @@ export function extractBuildings(objects: SaveObject[]): BuildingsInfo {
   }
   buildings.sort((a, b) => b.count - a.count);
 
-  const power: PowerState = {
-    generators: buildings.filter((b) => b.category === 'power'),
-  };
+  const generators = buildings.filter((b) => b.category === 'power');
+  const power = extractPower(objects, generators);
 
   const logistics = extractLogistics(classCounts);
 
   return { buildings, power, logistics };
+}
+
+/**
+ * Derive grid-wide power figures from the save's power components.
+ *
+ * Satisfactory serializes, on each {@link https://satisfactory.wiki.gg | FGPowerInfoComponent}:
+ *  - `mDynamicProductionCapacity` for generators — the MW they can produce, and
+ *  - `mTargetConsumption` for consumers — the MW they draw at full tilt.
+ *
+ * Summing these gives the maximum the world can produce vs. the maximum it
+ * could consume if everything ran at once. The number of `FGPowerCircuit`
+ * objects tells us how many independent grids exist.
+ */
+function extractPower(objects: SaveObject[], generators: BuildingCount[]): PowerState {
+  let maxProductionMW = 0;
+  let maxConsumptionMW = 0;
+  let circuitCount = 0;
+
+  for (const obj of objects) {
+    const id = shortId(obj.typePath);
+    if (id === 'FGPowerCircuit') {
+      circuitCount++;
+      continue;
+    }
+    if (id !== 'FGPowerInfoComponent') continue;
+
+    const props = obj.properties as Record<string, any> | undefined;
+    const capacity = props?.mDynamicProductionCapacity?.value;
+    const consumption = props?.mTargetConsumption?.value;
+    if (typeof capacity === 'number' && capacity > 0) maxProductionMW += capacity;
+    if (typeof consumption === 'number' && consumption > 0) maxConsumptionMW += consumption;
+  }
+
+  // Fallback: if the save serialized no production capacity (e.g. all generators
+  // idle/unfueled), estimate from generator counts × rated output.
+  if (maxProductionMW === 0 && generators.length > 0) {
+    maxProductionMW = generators.reduce(
+      (sum, g) => sum + g.count * (GENERATOR_RATED_MW[g.id] ?? 0),
+      0,
+    );
+  }
+
+  return {
+    generators,
+    maxProductionMW: round1(maxProductionMW),
+    maxConsumptionMW: round1(maxConsumptionMW),
+    circuitCount,
+  };
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
 }
 
 function sumClasses(counts: Map<string, number>, ids: readonly string[]): number {

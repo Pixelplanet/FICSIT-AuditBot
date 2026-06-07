@@ -89,6 +89,20 @@ export interface LogisticsState {
 export interface PowerState {
   /** Count of each generator type, keyed by friendly name. */
   generators: BuildingCount[];
+  /**
+   * Maximum power that can be produced across all grids, in MW. Summed from the
+   * generators' serialized dynamic production capacity (falls back to rated
+   * capacity by generator count when the save has no serialized value).
+   */
+  maxProductionMW: number;
+  /**
+   * Maximum power that could be consumed across all grids, in MW, if every
+   * machine ran at once. Summed from each consumer's serialized target
+   * consumption.
+   */
+  maxConsumptionMW: number;
+  /** Number of independent power circuits (grids) in the world. */
+  circuitCount: number;
 }
 
 /** The full normalized snapshot of a single save file. */

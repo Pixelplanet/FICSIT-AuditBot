@@ -52,6 +52,19 @@ export interface PhaseProgress {
   multiplierSource: 'save' | 'override' | 'default';
 }
 
+/** Grid-wide power capacity change between two snapshots (values in MW). */
+export interface PowerDelta {
+  maxProductionBeforeMW: number;
+  maxProductionAfterMW: number;
+  maxProductionDeltaMW: number;
+  maxConsumptionBeforeMW: number;
+  maxConsumptionAfterMW: number;
+  maxConsumptionDeltaMW: number;
+  /** after = production − consumption; negative means a deficit. */
+  balanceAfterMW: number;
+  circuitCount: number;
+}
+
 /** Options influencing the diff computation. */
 export interface DiffOptions {
   /**
@@ -85,6 +98,9 @@ export interface WorldDelta {
 
   /** Building count increases (and decreases). */
   buildingDeltas: BuildingDelta[];
+
+  /** Grid-wide power capacity vs. consumption snapshot and change. */
+  power: PowerDelta;
 
   /** True when nothing meaningful changed besides time. */
   isEmpty: boolean;
@@ -142,6 +158,8 @@ export function diffWorldStates(
 
   const phaseProgress = computePhaseProgress(after, options.phaseCostMultiplierOverride);
 
+  const power = computePowerDelta(before, after);
+
   const isEmpty =
     totalNewSchematics === 0 &&
     buildingDeltas.length === 0 &&
@@ -163,7 +181,31 @@ export function diffWorldStates(
     phaseDeliveryDeltas,
     phaseProgress,
     buildingDeltas,
+    power,
     isEmpty,
+  };
+}
+
+/** Round to one decimal place (MW figures). */
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+/** Build the grid-wide power snapshot + change between two world states. */
+function computePowerDelta(before: WorldState, after: WorldState): PowerDelta {
+  const beforeProd = before.power.maxProductionMW ?? 0;
+  const afterProd = after.power.maxProductionMW ?? 0;
+  const beforeCons = before.power.maxConsumptionMW ?? 0;
+  const afterCons = after.power.maxConsumptionMW ?? 0;
+  return {
+    maxProductionBeforeMW: beforeProd,
+    maxProductionAfterMW: afterProd,
+    maxProductionDeltaMW: round1(afterProd - beforeProd),
+    maxConsumptionBeforeMW: beforeCons,
+    maxConsumptionAfterMW: afterCons,
+    maxConsumptionDeltaMW: round1(afterCons - beforeCons),
+    balanceAfterMW: round1(afterProd - afterCons),
+    circuitCount: after.power.circuitCount ?? 0,
   };
 }
 

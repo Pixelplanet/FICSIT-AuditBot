@@ -36,6 +36,16 @@ function delta(overrides: Partial<WorldDelta> = {}): WorldDelta {
     newSchematics: emptySchematicGroups(),
     phaseDeliveryDeltas: [],
     buildingDeltas: [],
+    power: {
+      maxProductionBeforeMW: 0,
+      maxProductionAfterMW: 0,
+      maxProductionDeltaMW: 0,
+      maxConsumptionBeforeMW: 0,
+      maxConsumptionAfterMW: 0,
+      maxConsumptionDeltaMW: 0,
+      balanceAfterMW: 0,
+      circuitCount: 0,
+    },
     isEmpty: false,
     ...overrides,
   };

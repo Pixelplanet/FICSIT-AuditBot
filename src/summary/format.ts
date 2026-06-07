@@ -93,11 +93,11 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
   }
 
   // --- Power ---
-  const powerDeltas = delta.buildingDeltas.filter((b) => b.category === 'power' && b.delta > 0);
-  if (powerDeltas.length > 0) {
-    const list = renderList(powerDeltas.map((b) => `${signed(b.delta)} ${b.name} (now ${b.after})`));
-    lines.push(`\n⚡ **New power generation**\n${list}`);
-    fields.push({ name: '⚡ New power generation', value: list });
+  const powerLines = formatPower(delta);
+  if (powerLines.length > 0) {
+    const block = powerLines.join('\n');
+    lines.push(`\n⚡ **Power**\n${block}`);
+    fields.push({ name: '⚡ Power', value: block });
   }
 
   // --- Logistics ---
@@ -154,6 +154,38 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
   return { text: `**${title}**\n\n${lines.join('\n')}`, embed };
 }
 
+/**
+ * Build the power section: any newly built generators, plus a grid-wide snapshot
+ * of maximum production vs. maximum consumption so readers can immediately tell
+ * whether more power is needed before expanding.
+ */
+function formatPower(delta: WorldDelta): string[] {
+  const out: string[] = [];
+
+  const newGenerators = delta.buildingDeltas.filter((b) => b.category === 'power' && b.delta > 0);
+  for (const g of newGenerators) {
+    out.push(`• ${signed(g.delta)} ${g.name} (now ${g.after})`);
+  }
+
+  const p = delta.power;
+  const hasGrid = p.maxProductionAfterMW > 0 || p.maxConsumptionAfterMW > 0;
+  if (hasGrid) {
+    const prodDelta = p.maxProductionDeltaMW !== 0 ? ` (${signedMW(p.maxProductionDeltaMW)})` : '';
+    const consDelta = p.maxConsumptionDeltaMW !== 0 ? ` (${signedMW(p.maxConsumptionDeltaMW)})` : '';
+    out.push(`• Max production: **${mw(p.maxProductionAfterMW)}**${prodDelta}`);
+    out.push(`• Max consumption: **${mw(p.maxConsumptionAfterMW)}**${consDelta}`);
+
+    const gridNote = p.circuitCount > 1 ? ` _(across ${p.circuitCount} grids)_` : '';
+    if (p.balanceAfterMW >= 0) {
+      out.push(`• Balance: **+${mw(p.balanceAfterMW)}** ✅ surplus${gridNote}`);
+    } else {
+      out.push(`• Balance: **${mw(p.balanceAfterMW)}** ⚠️ more power needed${gridNote}`);
+    }
+  }
+
+  return out;
+}
+
 function formatPhase(delta: WorldDelta): string[] {
   const out: string[] = [];
   if (delta.phaseChanged) {
@@ -189,6 +221,19 @@ function formatMultiplier(n: number): string {
 
 function num(n: number): string {
   return n.toLocaleString('en-US');
+}
+
+/** Format a MW figure with a thousands separator, e.g. `3,504 MW`. */
+function mw(n: number): string {
+  const rounded = Math.round(n);
+  return `${rounded.toLocaleString('en-US')} MW`;
+}
+
+/** Format a signed MW delta, e.g. `+300 MW` / `−120 MW`. */
+function signedMW(n: number): string {
+  const rounded = Math.round(n);
+  const sign = rounded > 0 ? '+' : rounded < 0 ? '−' : '';
+  return `${sign}${Math.abs(rounded).toLocaleString('en-US')} MW`;
 }
 
 function renderList(items: string[]): string {

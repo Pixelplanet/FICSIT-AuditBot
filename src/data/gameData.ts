@@ -104,6 +104,22 @@ export const GENERATOR_NAMES: Record<string, string> = {
   Build_GeneratorIntegratedBiomass: 'Biomass Burner (Integrated)',
 };
 
+/**
+ * Rated power output (MW) at 100% clock per generator class. Used only as a
+ * fallback for total production capacity when a save has no serialized
+ * `mDynamicProductionCapacity` value (the preferred, overclock-aware source).
+ * Geothermal output is variable; its rough average is used.
+ */
+export const GENERATOR_RATED_MW: Record<string, number> = {
+  Build_GeneratorBiomass: 30,
+  Build_GeneratorBiomass_Automated: 30,
+  Build_GeneratorIntegratedBiomass: 0,
+  Build_GeneratorCoal: 75,
+  Build_GeneratorFuel: 250,
+  Build_GeneratorNuclear: 2500,
+  Build_GeneratorGeoThermal: 200,
+};
+
 /** Production (manufacturing) building classes -> friendly name. */
 export const PRODUCTION_NAMES: Record<string, string> = {
   Build_SmelterMk1: 'Smelter',

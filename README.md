@@ -19,7 +19,8 @@ All summary generation happens **in the application** (no AI at runtime).
 - 🔬 **New MAM research**
 - 🧪 **New alternate recipes** (from hard drives)
 - 🚀 **Project Assembly / Space Elevator** phase changes & parts delivered
-- ⚡ **New power generation** (by generator type)
+- ⚡ **Power** — new generators, plus a grid‑wide **max production vs. max
+  consumption** balance so you can see at a glance if more power is needed
 - 🚆 **Logistics** — trains, freight wagons, train stations, truck stations, vehicles, drones
 - 🏭 **Factories** — production & extraction building counts
 - 📦 **Storage** containers
@@ -57,8 +58,11 @@ Each time the canonical save changes, the bot posts a Discord embed like this:
 > • Versatile Framework: 0 / 2,000
 > • Automated Wiring: 0 / 200
 >
-> ⚡ **New power generation**
+> ⚡ **Power**
 > • +4 Coal Generator (now 12)
+> • Max production: **990 MW** (+300 MW)
+> • Max consumption: **3,504 MW** (+200 MW)
+> • Balance: **-2,514 MW** ⚠️ more power needed _(across 2 grids)_
 >
 > 🏭 **Factories**
 > • +18 Constructor (now 64)
@@ -232,6 +236,24 @@ Discord either in `compose.yaml` env or directly in the web UI.
 
 > `WATCH_USE_POLLING` defaults to `true` in the container because filesystem
 > change events are unreliable across bind mounts.
+
+## Power balance
+
+Each summary includes a grid‑wide power snapshot so readers can immediately see
+whether the factory needs more power before expanding:
+
+- **Max production** — the most the world can generate, summed from each
+  generator's serialized production capacity (overclock‑aware). If a save has no
+  serialized capacity (e.g. every generator idle/unfueled), it falls back to
+  rated output × generator count.
+- **Max consumption** — the most the world would draw if every machine ran at
+  once, summed from each consumer's serialized target consumption.
+- **Balance** — production − consumption. A surplus shows ✅; a deficit shows
+  ⚠️ _more power needed_.
+
+> Values come straight from the save's `FGPowerInfoComponent` data. Totals are
+> summed across every power grid; when there is more than one independent grid
+> the count is noted (a global balance can hide a shortfall on a single grid).
 
 ## How it works
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { diffWorldStates } from '../src/diff/compare.js';
-import { WORLD_STATE_SCHEMA_VERSION, type WorldState } from '../src/model.js';
+import { formatSummary } from '../src/summary/format.js';
+import { WORLD_STATE_SCHEMA_VERSION, type PowerState, type WorldState } from '../src/model.js';
 
 function baseState(overrides: Partial<WorldState> = {}): WorldState {
   return {
@@ -13,7 +14,7 @@ function baseState(overrides: Partial<WorldState> = {}): WorldState {
     totalObjects: 100,
     schematics: [],
     gamePhase: { deliveredToTarget: [] },
-    power: { generators: [] },
+    power: { generators: [], maxProductionMW: 0, maxConsumptionMW: 0, circuitCount: 0 },
     logistics: {
       locomotives: 0,
       freightWagons: 0,
@@ -154,5 +155,47 @@ describe('diffWorldStates', () => {
     const after = baseState({ playDurationSeconds: 5000 });
     const delta = diffWorldStates(before, after);
     expect(delta.isEmpty).toBe(true);
+  });
+});
+
+function power(overrides: Partial<PowerState> = {}): PowerState {
+  return { generators: [], maxProductionMW: 0, maxConsumptionMW: 0, circuitCount: 0, ...overrides };
+}
+
+describe('power delta', () => {
+  it('computes production/consumption change and balance', () => {
+    const before = baseState({ power: power({ maxProductionMW: 690, maxConsumptionMW: 3304, circuitCount: 2 }) });
+    const after = baseState({
+      power: power({ maxProductionMW: 990, maxConsumptionMW: 3504, circuitCount: 2 }),
+    });
+    const delta = diffWorldStates(before, after);
+    expect(delta.power.maxProductionAfterMW).toBe(990);
+    expect(delta.power.maxProductionDeltaMW).toBe(300);
+    expect(delta.power.maxConsumptionDeltaMW).toBe(200);
+    expect(delta.power.balanceAfterMW).toBe(990 - 3504);
+    expect(delta.power.circuitCount).toBe(2);
+  });
+
+  it('renders a deficit warning in the summary', () => {
+    const before = baseState({ power: power({ maxProductionMW: 100, maxConsumptionMW: 100 }) });
+    const after = baseState({
+      playDurationSeconds: 7200,
+      buildings: [{ id: 'Build_GeneratorCoal', name: 'Coal Generator', category: 'power', count: 2 }],
+      power: power({ maxProductionMW: 150, maxConsumptionMW: 600, circuitCount: 1 }),
+    });
+    const { text } = formatSummary(diffWorldStates(before, after), { includeAda: false });
+    expect(text).toContain('Max production: **150 MW**');
+    expect(text).toContain('Max consumption: **600 MW**');
+    expect(text).toContain('more power needed');
+  });
+
+  it('renders a surplus when production exceeds consumption', () => {
+    const before = baseState({ power: power({ maxProductionMW: 100, maxConsumptionMW: 50 }) });
+    const after = baseState({
+      buildings: [{ id: 'Build_GeneratorCoal', name: 'Coal Generator', category: 'power', count: 1 }],
+      power: power({ maxProductionMW: 800, maxConsumptionMW: 300, circuitCount: 1 }),
+    });
+    const { text } = formatSummary(diffWorldStates(before, after), { includeAda: false });
+    expect(text).toContain('Balance: **+500 MW** ✅ surplus');
   });
 });
