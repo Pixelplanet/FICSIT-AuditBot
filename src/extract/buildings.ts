@@ -164,7 +164,21 @@ function extractStorage(
   return {
     dimensionalDepotUploaders,
     dimensionalDepotItems: extractCentralStorageItems(objects, decompressedBody),
+    knownInventoryItems: extractKnownInventoryItems(objects),
   };
+}
+
+function extractKnownInventoryItems(objects: SaveObject[]): StorageState['knownInventoryItems'] {
+  const items = new Map<string, number>();
+  const seen = new WeakSet<object>();
+  for (const obj of objects) {
+    if (shortId(obj.typePath) !== 'FGInventoryComponent') continue;
+    collectItemAmounts(obj.properties, items, seen);
+  }
+
+  return [...items.entries()]
+    .map(([itemId, amount]) => ({ itemId, name: itemName(itemId), amount: round1(amount) }))
+    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
 }
 
 function extractCentralStorageItems(
@@ -292,6 +306,11 @@ function extractItemId(record: Record<string, unknown>): string | undefined {
     record.mItemClass,
     record.mItem,
     record.pathName,
+    (record.itemReference as { pathName?: unknown } | undefined)?.pathName,
+    (record.Item as { pathName?: unknown } | undefined)?.pathName,
+    (((record.Item as { value?: unknown } | undefined)?.value as
+      | { itemReference?: { pathName?: unknown } }
+      | undefined)?.itemReference?.pathName),
   ];
   for (const candidate of candidates) {
     const id = normalizeItemId(candidate);
@@ -308,6 +327,7 @@ function extractAmount(record: Record<string, unknown>): number | undefined {
     record.Count,
     record.quantity,
     record.Quantity,
+    record.NumItems,
     record.mAmount,
     record.mCount,
     record.mQuantity,

@@ -99,6 +99,8 @@ export interface StorageState {
   dimensionalDepotUploaders: number;
   /** Best-effort list of item types currently exposed by the central storage system. */
   dimensionalDepotItems: ItemAmount[];
+  /** Best-effort aggregate of parsed non-depot inventories (containers/machines/player). */
+  knownInventoryItems: ItemAmount[];
 }
 
 /** Power infrastructure tallies grouped by generator type. */

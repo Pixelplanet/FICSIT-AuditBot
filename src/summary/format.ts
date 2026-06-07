@@ -132,11 +132,19 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
     );
   }
   if (delta.storage.dimensionalDepotItems.length > 0) {
+    storageLines.push('• Dimensional Depot contents (known):');
     storageLines.push(
       renderList(
         delta.storage.dimensionalDepotItems.map((item) => `${num(item.amount)}× ${item.name}`),
       ),
     );
+  }
+
+  const knownInventoryItems = delta.storage.knownInventoryItems ?? [];
+  if (knownInventoryItems.length > 0) {
+    const topKnown = knownInventoryItems.slice(0, 20);
+    storageLines.push('• Other inventories (containers/machines/player, known):');
+    storageLines.push(renderList(topKnown.map((item) => `${num(item.amount)}× ${item.name}`)));
   }
 
   if (storageLines.length > 0) {

@@ -15,7 +15,7 @@ function baseState(overrides: Partial<WorldState> = {}): WorldState {
     schematics: [],
     gamePhase: { deliveredToTarget: [] },
     power: { generators: [], maxProductionMW: 0, maxConsumptionMW: 0, circuitCount: 0 },
-    storage: { dimensionalDepotUploaders: 0, dimensionalDepotItems: [] },
+    storage: { dimensionalDepotUploaders: 0, dimensionalDepotItems: [], knownInventoryItems: [] },
     logistics: logistics(),
     buildings: [],
     ...overrides,
@@ -91,7 +91,7 @@ describe('diffWorldStates', () => {
   it('does not duplicate dimensional depot uploader totals or claim empty contents', () => {
     const before = baseState();
     const after = baseState({
-      storage: { dimensionalDepotUploaders: 9, dimensionalDepotItems: [] },
+      storage: { dimensionalDepotUploaders: 9, dimensionalDepotItems: [], knownInventoryItems: [] },
       buildings: [
         { id: 'Build_CentralStorage', name: 'Dimensional Depot Uploader', category: 'storage', count: 9 },
       ],
