@@ -103,6 +103,15 @@
               <input type="text" name="canonicalSaveSuffix" placeholder="_continue.sav" />
             </label>
             <label class="field">
+              <span>Autosave interval (minutes)
+                <em class="muted">(0 = disabled, 5 typical dedicated-server default)</em></span>
+              <input type="number" name="autosaveIntervalMinutes" min="0" step="1" />
+            </label>
+            <label class="field">
+              <span>Autosave timing tolerance (seconds)</span>
+              <input type="number" name="autosaveTimeToleranceSeconds" min="0" step="1" />
+            </label>
+            <label class="field">
               <span>Game Docs.json path <em class="muted">(file, folder, or install root — blank to auto-detect)</em></span>
               <input type="text" name="docsPath" placeholder="e.g. /data/gamefiles/.../CommunityResources/Docs/Docs.json" />
             </label>
@@ -134,6 +143,34 @@
               <span>Space Elevator parts cost multiplier
                 <em class="muted">(0 = auto-detect from save)</em></span>
               <input type="number" name="phaseCostMultiplier" min="0" step="0.5" />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Dedicated Server HTTPS API (optional)</legend>
+            <p class="muted">
+              Used to query live server state (paused/players/milestone/phase) and avoid posting
+              from regular autosaves while players are still online.
+            </p>
+            <label class="field">
+              <span>API URL</span>
+              <input type="text" name="serverApiUrl" placeholder="https://127.0.0.1:7777/api/v1" />
+            </label>
+            <label class="field">
+              <span>API token <em id="serverApiTokenState" class="state"></em></span>
+              <input type="password" name="serverApiToken" placeholder="Leave blank to keep current" autocomplete="off" />
+            </label>
+            <label class="check">
+              <input type="checkbox" id="clearServerApiToken" />
+              <span>Clear API token</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="serverApiAllowInsecureTls" />
+              <span>Allow self-signed TLS certificate</span>
+            </label>
+            <label class="field">
+              <span>API timeout (ms)</span>
+              <input type="number" name="serverApiTimeoutMs" min="100" step="100" />
             </label>
           </fieldset>
 

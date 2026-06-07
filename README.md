@@ -1,6 +1,6 @@
 # Satisfactory Save Summary Bot
 
-Watches your Satisfactory save files, compares each new **canonical** save
+Watches your Satisfactory save files, compares each new **tracked** save
 (`*_continue.sav` by default) against the previous one, and posts a summary of
 **what changed** to Discord (and/or the console).
 
@@ -111,6 +111,12 @@ Edit `.env`:
 | --- | --- | --- |
 | `SAVES_DIR` | `./Saves` | Folder containing your save files (`/saves` in the image) |
 | `CANONICAL_SAVE_SUFFIX` | `_continue.sav` | Which save suffix to track (set `.sav` on dedicated servers to follow autosaves) |
+| `AUTOSAVE_INTERVAL_MINUTES` | `0` | When `>0`, infer autosave cadence and prefer newest **off-cadence** save (disconnect/player save) |
+| `AUTOSAVE_TIME_TOLERANCE_SECONDS` | `2` | Allowed timing drift when detecting autosave cadence |
+| `SERVER_API_URL` | _(blank)_ | Optional dedicated-server API endpoint (e.g. `https://127.0.0.1:7777/api/v1`) |
+| `SERVER_API_TOKEN` | _(blank)_ | Optional API bearer token (`server.GenerateAPIToken`) |
+| `SERVER_API_ALLOW_INSECURE_TLS` | `true` | Allow self-signed dedicated-server certificate |
+| `SERVER_API_TIMEOUT_MS` | `5000` | Timeout for server API requests |
 | `DATA_DIR` | _(unset)_ | Single data root; `state/` + `docs/` default under it (`/data` in the image) |
 | `DOCS_PATH` | _(auto)_ | Game `Docs.json`/`en-US.json` (file, folder, or install root); defaults to `<DATA_DIR>/docs` |
 | `STATE_DIR` | `./state` | Where snapshots + `db.json` + `config.json` are kept; defaults to `<DATA_DIR>/state` |
@@ -127,6 +133,37 @@ Edit `.env`:
 
 > Env vars set the **defaults**. Anything you change in the web UI is saved to
 > `config.json` in the state dir and takes precedence from then on.
+
+Dedicated-server recommendation:
+- `CANONICAL_SAVE_SUFFIX=.sav`
+- `AUTOSAVE_INTERVAL_MINUTES=5` (or your server interval)
+- `AUTOSAVE_TIME_TOLERANCE_SECONDS=2`
+
+With this enabled, the bot infers the scheduled autosave phase from recent
+`_autosave_*.sav` timestamps and tracks the newest save that does **not** match
+that cadence. If a disconnect happens exactly on the autosave timestamp, it may
+be indistinguishable from a scheduled autosave.
+
+For highest reliability on dedicated servers, also configure the HTTPS API
+below. When enabled, the bot queries `QueryServerState` and skips processing
+while the game is running unpaused with connected players.
+
+### Dedicated server HTTPS API (optional, recommended)
+
+Satisfactory dedicated servers expose a JSON API at `/api/v1` (usually HTTPS,
+often with a self-signed cert). The bot can query live state to improve save
+selection behavior and expose diagnostics in the web UI status tab.
+
+Setup:
+1. Generate token on the server console: `server.GenerateAPIToken`
+2. Set:
+  - `SERVER_API_URL=https://<server>:7777/api/v1`
+  - `SERVER_API_TOKEN=<generated token>`
+  - `SERVER_API_ALLOW_INSECURE_TLS=true` (for self-signed certs)
+3. Restart the bot / redeploy stack.
+
+When active, the status tab shows live values such as connected players,
+paused/running state, active milestone schematic, and current game phase.
 
 Both delivery methods can be enabled at once; each is attempted independently.
 

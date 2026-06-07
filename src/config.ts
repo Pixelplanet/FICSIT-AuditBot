@@ -17,12 +17,31 @@ export interface DiscordConfig {
   channelId?: string;
 }
 
+export interface ServerApiConfig {
+  /** Base API endpoint, e.g. https://127.0.0.1:7777/api/v1 */
+  url?: string;
+  /** Bearer token generated via server.GenerateAPIToken */
+  token?: string;
+  /** Allow self-signed TLS certificates. */
+  allowInsecureTls: boolean;
+  /** Request timeout in milliseconds. */
+  timeoutMs: number;
+}
+
 /** Settings that can be edited at runtime via the web UI. */
 export interface EditableSettings {
   /** Absolute path to the folder containing save files. */
   savesDir: string;
   /** Suffix identifying the canonical (non-autosave) save, e.g. `_continue.sav`. */
   canonicalSaveSuffix: string;
+  /**
+   * Dedicated-server mode: when > 0, treat saves that are off the autosave
+   * cadence as "player/disconnect" saves and prefer those as the tracked save.
+   * 0 disables this behavior.
+   */
+  autosaveIntervalMinutes: number;
+  /** Allowed timing drift (seconds) when matching the autosave cadence. */
+  autosaveTimeToleranceSeconds: number;
   /** Path to the game's Docs.json / en-US.json (file, dir, or install root). Blank = auto-discover. */
   docsPath?: string;
   /** Whether to actually post to Discord (vs. console/preview only). */
@@ -43,6 +62,7 @@ export interface EditableSettings {
   /** Port the web UI listens on. */
   webPort: number;
   discord: DiscordConfig;
+  serverApi: ServerApiConfig;
 }
 
 export interface AppConfig extends EditableSettings {
@@ -54,6 +74,8 @@ export interface AppConfig extends EditableSettings {
 export interface PublicConfig {
   savesDir: string;
   canonicalSaveSuffix: string;
+  autosaveIntervalMinutes: number;
+  autosaveTimeToleranceSeconds: number;
   docsPath?: string;
   stateDir: string;
   postToDiscord: boolean;
@@ -63,6 +85,12 @@ export interface PublicConfig {
   watchUsePolling: boolean;
   webEnabled: boolean;
   webPort: number;
+  serverApi: {
+    url?: string;
+    tokenSet: boolean;
+    allowInsecureTls: boolean;
+    timeoutMs: number;
+  };
   discord: {
     webhookUrlSet: boolean;
     botTokenSet: boolean;
@@ -74,6 +102,8 @@ export interface PublicConfig {
 export interface SettingsPatch {
   savesDir?: string;
   canonicalSaveSuffix?: string;
+  autosaveIntervalMinutes?: number;
+  autosaveTimeToleranceSeconds?: number;
   docsPath?: string;
   postToDiscord?: boolean;
   skipEmptySummaries?: boolean;
@@ -82,6 +112,12 @@ export interface SettingsPatch {
   watchUsePolling?: boolean;
   webEnabled?: boolean;
   webPort?: number;
+  serverApi?: {
+    url?: string;
+    token?: string | null;
+    allowInsecureTls?: boolean;
+    timeoutMs?: number;
+  };
   discord?: {
     webhookUrl?: string | null;
     botToken?: string | null;
@@ -143,6 +179,8 @@ function envDefaults(): EditableSettings {
   return {
     savesDir: resolve(process.env.SAVES_DIR?.trim() || './Saves'),
     canonicalSaveSuffix: process.env.CANONICAL_SAVE_SUFFIX?.trim() || '_continue.sav',
+    autosaveIntervalMinutes: int(process.env.AUTOSAVE_INTERVAL_MINUTES, 0),
+    autosaveTimeToleranceSeconds: int(process.env.AUTOSAVE_TIME_TOLERANCE_SECONDS, 2),
     docsPath: resolveDocsPath(),
     postToDiscord: bool(process.env.POST_TO_DISCORD, false),
     skipEmptySummaries: bool(process.env.SKIP_EMPTY_SUMMARIES, true),
@@ -151,6 +189,12 @@ function envDefaults(): EditableSettings {
     watchUsePolling: bool(process.env.WATCH_USE_POLLING, false),
     webEnabled: bool(process.env.WEB_ENABLED, true),
     webPort: int(process.env.WEB_PORT, 8080),
+    serverApi: {
+      url: optional(process.env.SERVER_API_URL),
+      token: optional(process.env.SERVER_API_TOKEN),
+      allowInsecureTls: bool(process.env.SERVER_API_ALLOW_INSECURE_TLS, true),
+      timeoutMs: int(process.env.SERVER_API_TIMEOUT_MS, 5000),
+    },
     discord: {
       webhookUrl: optional(process.env.DISCORD_WEBHOOK_URL),
       botToken: optional(process.env.DISCORD_BOT_TOKEN),
@@ -193,6 +237,8 @@ export class ConfigManager {
     return {
       savesDir: s.savesDir,
       canonicalSaveSuffix: s.canonicalSaveSuffix,
+      autosaveIntervalMinutes: s.autosaveIntervalMinutes,
+      autosaveTimeToleranceSeconds: s.autosaveTimeToleranceSeconds,
       docsPath: s.docsPath,
       stateDir: this.stateDir,
       postToDiscord: s.postToDiscord,
@@ -202,6 +248,12 @@ export class ConfigManager {
       watchUsePolling: s.watchUsePolling,
       webEnabled: s.webEnabled,
       webPort: s.webPort,
+      serverApi: {
+        url: s.serverApi.url,
+        tokenSet: Boolean(s.serverApi.token),
+        allowInsecureTls: s.serverApi.allowInsecureTls,
+        timeoutMs: s.serverApi.timeoutMs,
+      },
       discord: {
         webhookUrlSet: Boolean(s.discord.webhookUrl),
         botTokenSet: Boolean(s.discord.botToken),
@@ -243,6 +295,7 @@ function mergeSettings(base: EditableSettings, saved: Partial<EditableSettings>)
     ...base,
     ...saved,
     savesDir: saved.savesDir ? resolve(saved.savesDir) : base.savesDir,
+    serverApi: { ...base.serverApi, ...(saved.serverApi ?? {}) },
     discord: { ...base.discord, ...(saved.discord ?? {}) },
   };
 }
@@ -255,6 +308,12 @@ function applyPatch(current: EditableSettings, patch: SettingsPatch): EditableSe
 
   if (patch.savesDir !== undefined) next.savesDir = resolve(patch.savesDir);
   if (patch.canonicalSaveSuffix !== undefined) next.canonicalSaveSuffix = patch.canonicalSaveSuffix.trim();
+  if (patch.autosaveIntervalMinutes !== undefined) {
+    next.autosaveIntervalMinutes = Math.max(0, Math.floor(patch.autosaveIntervalMinutes));
+  }
+  if (patch.autosaveTimeToleranceSeconds !== undefined) {
+    next.autosaveTimeToleranceSeconds = Math.max(0, Math.floor(patch.autosaveTimeToleranceSeconds));
+  }
   if (patch.docsPath !== undefined) next.docsPath = patch.docsPath.trim() ? patch.docsPath.trim() : undefined;
   if (patch.postToDiscord !== undefined) next.postToDiscord = patch.postToDiscord;
   if (patch.skipEmptySummaries !== undefined) next.skipEmptySummaries = patch.skipEmptySummaries;
@@ -263,6 +322,19 @@ function applyPatch(current: EditableSettings, patch: SettingsPatch): EditableSe
   if (patch.watchUsePolling !== undefined) next.watchUsePolling = patch.watchUsePolling;
   if (patch.webEnabled !== undefined) next.webEnabled = patch.webEnabled;
   if (patch.webPort !== undefined) next.webPort = Math.max(1, Math.floor(patch.webPort));
+
+  if (patch.serverApi) {
+    if (patch.serverApi.url !== undefined) {
+      next.serverApi.url = patch.serverApi.url.trim() ? patch.serverApi.url.trim() : undefined;
+    }
+    next.serverApi.token = applySecret(current.serverApi.token, patch.serverApi.token);
+    if (patch.serverApi.allowInsecureTls !== undefined) {
+      next.serverApi.allowInsecureTls = patch.serverApi.allowInsecureTls;
+    }
+    if (patch.serverApi.timeoutMs !== undefined) {
+      next.serverApi.timeoutMs = Math.max(100, Math.floor(patch.serverApi.timeoutMs));
+    }
+  }
 
   if (patch.discord) {
     next.discord.webhookUrl = applySecret(current.discord.webhookUrl, patch.discord.webhookUrl);
@@ -291,6 +363,8 @@ function diffKeys(before: EditableSettings, after: EditableSettings): Set<string
   const topKeys: (keyof EditableSettings)[] = [
     'savesDir',
     'canonicalSaveSuffix',
+    'autosaveIntervalMinutes',
+    'autosaveTimeToleranceSeconds',
     'docsPath',
     'postToDiscord',
     'skipEmptySummaries',
@@ -302,6 +376,14 @@ function diffKeys(before: EditableSettings, after: EditableSettings): Set<string
   ];
   for (const key of topKeys) {
     if (before[key] !== after[key]) changed.add(key);
+  }
+  if (
+    before.serverApi.url !== after.serverApi.url ||
+    before.serverApi.token !== after.serverApi.token ||
+    before.serverApi.allowInsecureTls !== after.serverApi.allowInsecureTls ||
+    before.serverApi.timeoutMs !== after.serverApi.timeoutMs
+  ) {
+    changed.add('serverApi');
   }
   if (
     before.discord.webhookUrl !== after.discord.webhookUrl ||

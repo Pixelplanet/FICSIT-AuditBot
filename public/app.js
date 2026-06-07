@@ -52,20 +52,28 @@ async function loadConfig() {
     const f = document.getElementById('configForm');
     f.savesDir.value = cfg.savesDir || '';
     f.canonicalSaveSuffix.value = cfg.canonicalSaveSuffix || '';
+    f.autosaveIntervalMinutes.value = cfg.autosaveIntervalMinutes ?? 0;
+    f.autosaveTimeToleranceSeconds.value = cfg.autosaveTimeToleranceSeconds ?? 2;
     f.docsPath.value = cfg.docsPath || '';
     f.postToDiscord.checked = !!cfg.postToDiscord;
     f.skipEmptySummaries.checked = !!cfg.skipEmptySummaries;
     f.watchUsePolling.checked = !!cfg.watchUsePolling;
     f.watchDebounceMs.value = cfg.watchDebounceMs ?? 5000;
     f.phaseCostMultiplier.value = cfg.phaseCostMultiplier ?? 0;
+    f.serverApiUrl.value = cfg.serverApi?.url || '';
+    f.serverApiAllowInsecureTls.checked = !!cfg.serverApi?.allowInsecureTls;
+    f.serverApiTimeoutMs.value = cfg.serverApi?.timeoutMs ?? 5000;
     f.channelId.value = cfg.discord.channelId || '';
     f.webPort.value = cfg.webPort ?? 8080;
     setState('webhookState', cfg.discord.webhookUrlSet);
     setState('botState', cfg.discord.botTokenSet);
+    setState('serverApiTokenState', !!cfg.serverApi?.tokenSet);
     f.webhookUrl.value = '';
     f.botToken.value = '';
+    f.serverApiToken.value = '';
     document.getElementById('clearWebhook').checked = false;
     document.getElementById('clearBot').checked = false;
+    document.getElementById('clearServerApiToken').checked = false;
     refreshDocsState();
   } catch (err) {
     toast('Failed to load config: ' + err.message, 'err');
@@ -118,10 +126,13 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
   const f = e.target;
   const clearWebhook = document.getElementById('clearWebhook').checked;
   const clearBot = document.getElementById('clearBot').checked;
+  const clearServerApiToken = document.getElementById('clearServerApiToken').checked;
 
   const patch = {
     savesDir: f.savesDir.value.trim(),
     canonicalSaveSuffix: f.canonicalSaveSuffix.value.trim(),
+    autosaveIntervalMinutes: Number(f.autosaveIntervalMinutes.value),
+    autosaveTimeToleranceSeconds: Number(f.autosaveTimeToleranceSeconds.value),
     docsPath: f.docsPath.value.trim(),
     postToDiscord: f.postToDiscord.checked,
     skipEmptySummaries: f.skipEmptySummaries.checked,
@@ -129,6 +140,12 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
     watchDebounceMs: Number(f.watchDebounceMs.value),
     phaseCostMultiplier: Number(f.phaseCostMultiplier.value),
     webPort: Number(f.webPort.value),
+    serverApi: {
+      url: f.serverApiUrl.value.trim(),
+      allowInsecureTls: f.serverApiAllowInsecureTls.checked,
+      timeoutMs: Number(f.serverApiTimeoutMs.value),
+      token: clearServerApiToken ? null : (f.serverApiToken.value.trim() || undefined),
+    },
     discord: {
       channelId: f.channelId.value.trim(),
       // null clears, undefined keeps, string sets
@@ -155,10 +172,18 @@ async function loadStatus() {
     const rows = [
       ['Saves directory', s.savesDir],
       ['Canonical suffix', '*' + s.canonicalSuffix],
+      ['Autosave interval', s.autosaveIntervalMinutes > 0 ? `${s.autosaveIntervalMinutes} min` : 'disabled'],
+      ['Autosave tolerance', `${s.autosaveTimeToleranceSeconds}s`],
       ['Canonical save', s.canonicalSaveName || '(none found)'],
       ['Watching', s.watching ? 'yes' : 'no'],
       ['Post to Discord', s.postToDiscord ? 'enabled' : 'disabled'],
       ['Discord configured', s.discordReady ? 'yes' : 'no'],
+      ['Server API configured', s.serverApi?.configured ? 'yes' : 'no'],
+      ['Server API reachable', s.serverApi?.reachable ? 'yes' : 'no'],
+      ['Server connected players', s.serverApi?.gameState?.numConnectedPlayers ?? '—'],
+      ['Server paused', s.serverApi?.gameState?.isGamePaused == null ? '—' : (s.serverApi.gameState.isGamePaused ? 'yes' : 'no')],
+      ['Active milestone', s.serverApi?.gameState?.activeSchematic || '—'],
+      ['Game phase', s.serverApi?.gameState?.gamePhase || '—'],
       ['Game data (Docs.json)', s.docs && s.docs.loaded
         ? `loaded — ${s.docs.schematics} schematics, ${s.docs.recipes} recipes, ${s.docs.items} items`
         : (s.docs && s.docs.error ? s.docs.error : 'not loaded')],

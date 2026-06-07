@@ -17,6 +17,15 @@ services:
       # Dedicated servers often rotate autosaves while _continue stays stale,
       # so track the newest .sav file by default.
       CANONICAL_SAVE_SUFFIX: ".sav"
+      # Prefer off-cadence saves (typically disconnect/player saves) over
+      # strict interval autosaves.
+      AUTOSAVE_INTERVAL_MINUTES: "5"
+      AUTOSAVE_TIME_TOLERANCE_SECONDS: "2"
+      # Optional dedicated-server HTTPS API (live paused/player state).
+      # SERVER_API_URL: "https://127.0.0.1:7777/api/v1"
+      # SERVER_API_TOKEN: ""
+      SERVER_API_ALLOW_INSECURE_TLS: "true"
+      SERVER_API_TIMEOUT_MS: "5000"
       # Start in preview-only mode; flip to true (or use the web UI) to post.
       POST_TO_DISCORD: "false"
       SKIP_EMPTY_SUMMARIES: "true"

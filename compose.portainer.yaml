@@ -32,6 +32,14 @@ services:
       # Dedicated servers often rotate autosaves while _continue stays stale,
       # so track the newest .sav file by default.
       CANONICAL_SAVE_SUFFIX: ".sav"
+      # Prefer off-cadence saves (typically disconnect/player saves) over
+      # strict interval autosaves.
+      AUTOSAVE_INTERVAL_MINUTES: "${AUTOSAVE_INTERVAL_MINUTES:-5}"
+      AUTOSAVE_TIME_TOLERANCE_SECONDS: "${AUTOSAVE_TIME_TOLERANCE_SECONDS:-2}"
+      SERVER_API_URL: "${SERVER_API_URL:-}"
+      SERVER_API_TOKEN: "${SERVER_API_TOKEN:-}"
+      SERVER_API_ALLOW_INSECURE_TLS: "${SERVER_API_ALLOW_INSECURE_TLS:-true}"
+      SERVER_API_TIMEOUT_MS: "${SERVER_API_TIMEOUT_MS:-5000}"
       POST_TO_DISCORD: "${POST_TO_DISCORD:-false}"
       SKIP_EMPTY_SUMMARIES: "${SKIP_EMPTY_SUMMARIES:-true}"
       WATCH_DEBOUNCE_MS: "${WATCH_DEBOUNCE_MS:-5000}"

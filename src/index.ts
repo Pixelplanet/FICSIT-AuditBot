@@ -32,7 +32,13 @@ function logStartup(config: AppConfig): void {
   console.log('Satisfactory Save Summary Bot');
   console.log(`  Saves dir:       ${config.savesDir}`);
   console.log(`  Canonical:       *${config.canonicalSaveSuffix}`);
+  console.log(
+    `  Autosave cadence:${config.autosaveIntervalMinutes > 0
+      ? ` every ${config.autosaveIntervalMinutes}m (tolerance ${config.autosaveTimeToleranceSeconds}s)`
+      : ' disabled'}`,
+  );
   console.log(`  State dir:       ${config.stateDir}`);
+  console.log(`  Server API:      ${config.serverApi.url ? config.serverApi.url : 'disabled'}`);
   console.log(`  Post to Discord: ${config.postToDiscord}`);
   console.log(`  Web UI:          ${config.webEnabled ? `port ${config.webPort}` : 'disabled'}`);
   if (config.postToDiscord && !hasDiscordDelivery(config)) {

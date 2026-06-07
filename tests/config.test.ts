@@ -2,7 +2,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { join, resolve } from 'node:path';
 import { ConfigManager } from '../src/config.js';
 
-const PATH_VARS = ['DATA_DIR', 'STATE_DIR', 'DOCS_PATH', 'SAVES_DIR'] as const;
+const PATH_VARS = [
+  'DATA_DIR',
+  'STATE_DIR',
+  'DOCS_PATH',
+  'SAVES_DIR',
+  'AUTOSAVE_INTERVAL_MINUTES',
+  'AUTOSAVE_TIME_TOLERANCE_SECONDS',
+  'SERVER_API_URL',
+  'SERVER_API_TOKEN',
+  'SERVER_API_ALLOW_INSECURE_TLS',
+  'SERVER_API_TIMEOUT_MS',
+] as const;
 
 function clearPathEnv(): void {
   for (const key of PATH_VARS) delete process.env[key];

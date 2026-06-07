@@ -10,6 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "watch": "tsx src/index.ts",
     "inspect": "tsx src/tools/inspect.ts",
+    "powerscan": "tsx src/tools/powerscan.ts",
     "dump": "tsx src/tools/dump.ts",
     "schematics": "tsx src/tools/schematics.ts",
     "diff": "tsx src/tools/diff.ts",

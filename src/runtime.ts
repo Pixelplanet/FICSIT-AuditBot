@@ -24,6 +24,12 @@ import { findCanonicalSave, watchSaves, type SaveWatcher } from './watcher.js';
 import type { SummaryResult } from './summary/format.js';
 import { discoverDocsPath, setDocsIndex } from './data/docsProvider.js';
 import { loadDocsFromFile } from './data/docs/index.js';
+import {
+  hasServerApiConfig,
+  queryServerState,
+  type ServerApiState,
+  type ServerGameState,
+} from './serverApi/client.js';
 
 export interface DocsStatus {
   loaded: boolean;
@@ -37,11 +43,14 @@ export interface DocsStatus {
 export interface RuntimeStatus {
   savesDir: string;
   canonicalSuffix: string;
+  autosaveIntervalMinutes: number;
+  autosaveTimeToleranceSeconds: number;
   canonicalSave?: string;
   canonicalSaveName?: string;
   watching: boolean;
   postToDiscord: boolean;
   discordReady: boolean;
+  serverApi: ServerApiState;
   docs: DocsStatus;
   /** Effective Space Elevator parts cost multiplier and where it came from. */
   phaseCostMultiplier: { value: number; source: 'override' | 'save' | 'default' };
@@ -61,6 +70,7 @@ export class Runtime {
   private processing: Promise<void> = Promise.resolve();
   private lastResult?: { status: string; message: string; at: string };
   private docsStatus: DocsStatus = { loaded: false };
+  private serverApiState: ServerApiState = { configured: false, reachable: false };
 
   constructor(
     private readonly configManager: ConfigManager,
@@ -90,6 +100,8 @@ export class Runtime {
       if (
         changed.has('savesDir') ||
         changed.has('canonicalSaveSuffix') ||
+        changed.has('autosaveIntervalMinutes') ||
+        changed.has('autosaveTimeToleranceSeconds') ||
         changed.has('watchDebounceMs') ||
         changed.has('watchUsePolling')
       ) {
@@ -167,6 +179,17 @@ export class Runtime {
   }
 
   private async runOnce(savePath: string): Promise<void> {
+    const serverState = await this.queryServerStateSafe();
+    if (this.shouldSkipBecauseServerActive(serverState?.gameState)) {
+      this.lastResult = {
+        status: 'skipped-server-active',
+        message: 'Server has active players and is not paused; waiting for an idle/disconnect save.',
+        at: new Date().toISOString(),
+      };
+      console.log(`[process] ${this.lastResult.status}: ${this.lastResult.message}`);
+      return;
+    }
+
     const result = await processSave(savePath, this.config, this.store, this.dispatcher);
     this.lastResult = {
       status: result.status,
@@ -282,17 +305,21 @@ export class Runtime {
   async getStatus(): Promise<RuntimeStatus> {
     const config = this.config;
     const canonicalSave = await findCanonicalSave(config);
+    await this.queryServerStateSafe();
     const state = this.store.get();
     const ws = state.lastWorldState;
 
     return {
       savesDir: config.savesDir,
       canonicalSuffix: config.canonicalSaveSuffix,
+      autosaveIntervalMinutes: config.autosaveIntervalMinutes,
+      autosaveTimeToleranceSeconds: config.autosaveTimeToleranceSeconds,
       canonicalSave,
       canonicalSaveName: canonicalSave ? basename(canonicalSave) : undefined,
       watching: Boolean(this.watcher),
       postToDiscord: config.postToDiscord,
       discordReady: hasDiscordDelivery(config),
+      serverApi: this.serverApiState,
       docs: this.docsStatus,
       phaseCostMultiplier: resolveMultiplier(config.phaseCostMultiplier, ws?.gamePhase.partsCostMultiplier),
       baseline: {
@@ -339,6 +366,41 @@ export class Runtime {
   async shutdown(): Promise<void> {
     await this.watcher?.close().catch(() => undefined);
     await this.dispatcher?.shutdown().catch(() => undefined);
+  }
+
+  private async queryServerStateSafe(): Promise<ServerApiState | undefined> {
+    const config = this.config;
+    if (!hasServerApiConfig(config)) {
+      this.serverApiState = { configured: false, reachable: false, checkedAt: new Date().toISOString() };
+      return undefined;
+    }
+    try {
+      const state = await queryServerState(config);
+      this.serverApiState = {
+        configured: true,
+        reachable: true,
+        checkedAt: new Date().toISOString(),
+        gameState: state,
+      };
+      return this.serverApiState;
+    } catch (err) {
+      this.serverApiState = {
+        configured: true,
+        reachable: false,
+        checkedAt: new Date().toISOString(),
+        error: (err as Error).message,
+      };
+      console.warn('[server-api] QueryServerState failed:', err);
+      return this.serverApiState;
+    }
+  }
+
+  private shouldSkipBecauseServerActive(state: ServerGameState | undefined): boolean {
+    if (!state) return false;
+    const running = state.isGameRunning !== false;
+    const paused = state.isGamePaused === true;
+    const players = state.numConnectedPlayers ?? 0;
+    return running && !paused && players > 0;
   }
 }
 
