@@ -14,6 +14,9 @@ services:
       # Polling is more reliable for save changes across bind mounts.
       WATCH_USE_POLLING: "true"
       WATCH_DEBOUNCE_MS: "5000"
+      # Dedicated servers often rotate autosaves while _continue stays stale,
+      # so track the newest .sav file by default.
+      CANONICAL_SAVE_SUFFIX: ".sav"
       # Start in preview-only mode; flip to true (or use the web UI) to post.
       POST_TO_DISCORD: "false"
       SKIP_EMPTY_SUMMARIES: "true"

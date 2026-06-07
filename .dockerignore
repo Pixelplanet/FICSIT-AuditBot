@@ -3,7 +3,14 @@ dist
 /state
 tmp-test
 /Saves
+# Keep repo docs out of the build context by default, but include one
+# bundled baseline docs snapshot for first-run Docker experience.
 docs
+!docs/CommunityResources/
+docs/CommunityResources/*
+!docs/CommunityResources/Docs/
+docs/CommunityResources/Docs/*
+!docs/CommunityResources/Docs/en-US.json
 .env
 .env.local
 .git

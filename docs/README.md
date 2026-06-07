@@ -13,7 +13,8 @@ Where to find it (game install, not the save location):
 Copy that file into this folder (so it becomes `docs/Docs.json`), or point
 `DOCS_PATH` at it directly. You can also drop the **entire `CommunityResources`
 folder** in here — the bot auto-discovers `CommunityResources/Docs/en-US.json`
-(or `Docs.json`). In Docker, this folder is mounted read-only at `/data/docs`.
+(or `Docs.json`). In Docker, this folder maps to `/data/docs` inside the
+container.
 
 With game data loaded, summaries include real names, what each research/milestone
 unlocks, alternate-recipe formulas, milestone build costs, and Space Elevator

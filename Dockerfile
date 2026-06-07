@@ -23,6 +23,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy compiled output and static web assets.
 COPY --from=build /app/dist ./dist
 COPY public ./public
+COPY docs/CommunityResources/Docs/en-US.json /opt/ficsit-docs/en-US.json
+COPY docker-entrypoint.sh /usr/local/bin/ficsit-entrypoint.sh
+RUN chmod +x /usr/local/bin/ficsit-entrypoint.sh
 
 # Default runtime configuration (override via compose / env).
 # DATA_DIR is the single internal data root; state/ and docs/ live under it.
@@ -39,4 +42,5 @@ EXPOSE 8080
 # Persist all app data (snapshots + db.json + config.json + optional docs).
 VOLUME ["/data"]
 
+ENTRYPOINT ["/usr/local/bin/ficsit-entrypoint.sh"]
 CMD ["node", "dist/index.js"]

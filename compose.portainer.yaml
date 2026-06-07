@@ -29,6 +29,9 @@ services:
     environment:
       # Paths are baked into the image (DATA_DIR=/data, SAVES_DIR=/saves);
       # only behaviour + Discord are configurable here (optional via .env).
+      # Dedicated servers often rotate autosaves while _continue stays stale,
+      # so track the newest .sav file by default.
+      CANONICAL_SAVE_SUFFIX: ".sav"
       POST_TO_DISCORD: "${POST_TO_DISCORD:-false}"
       SKIP_EMPTY_SUMMARIES: "${SKIP_EMPTY_SUMMARIES:-true}"
       WATCH_DEBOUNCE_MS: "${WATCH_DEBOUNCE_MS:-5000}"
