@@ -8,6 +8,9 @@ dist/
 # also ignore the src/state/ source directory.
 /state/
 
+# Local container data root (state/ + docs/ subfolders) used by compose.yaml.
+/data/
+
 # Local Satisfactory save files (large, user-supplied; mounted at runtime)
 /Saves/
 

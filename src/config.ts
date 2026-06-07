@@ -106,12 +106,44 @@ function optional(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+/**
+ * Resolve the optional shared data root (`DATA_DIR`). When set, the state and
+ * docs directories default to subfolders of it, so a deployment only needs a
+ * single volume mounted at this path (plus a bind for the saves folder).
+ */
+function dataRoot(): string | undefined {
+  const d = process.env.DATA_DIR?.trim();
+  return d ? resolve(d) : undefined;
+}
+
+/**
+ * Resolve the state directory. Explicit `STATE_DIR` wins; otherwise it is the
+ * `state/` subfolder of `DATA_DIR` when set; otherwise `./state`.
+ */
+function resolveStateDir(): string {
+  const explicit = process.env.STATE_DIR?.trim();
+  if (explicit) return resolve(explicit);
+  const data = dataRoot();
+  return data ? join(data, 'state') : resolve('./state');
+}
+
+/**
+ * Resolve the default docs path. Explicit `DOCS_PATH` wins; otherwise the
+ * `docs/` subfolder of `DATA_DIR` when set; otherwise undefined (auto-discover).
+ */
+function resolveDocsPath(): string | undefined {
+  const explicit = optional(process.env.DOCS_PATH);
+  if (explicit) return explicit;
+  const data = dataRoot();
+  return data ? join(data, 'docs') : undefined;
+}
+
 /** Build the env-based default editable settings. */
 function envDefaults(): EditableSettings {
   return {
     savesDir: resolve(process.env.SAVES_DIR?.trim() || './Saves'),
     canonicalSaveSuffix: process.env.CANONICAL_SAVE_SUFFIX?.trim() || '_continue.sav',
-    docsPath: optional(process.env.DOCS_PATH),
+    docsPath: resolveDocsPath(),
     postToDiscord: bool(process.env.POST_TO_DISCORD, false),
     skipEmptySummaries: bool(process.env.SKIP_EMPTY_SUMMARIES, true),
     watchDebounceMs: int(process.env.WATCH_DEBOUNCE_MS, 5000),
@@ -134,7 +166,7 @@ export class ConfigManager {
   private readonly listeners: ConfigChangeListener[] = [];
 
   constructor() {
-    this.stateDir = resolve(process.env.STATE_DIR?.trim() || './state');
+    this.stateDir = resolveStateDir();
     this.overridesPath = join(this.stateDir, 'config.json');
     this.settings = envDefaults();
   }

@@ -1,19 +1,21 @@
 # =============================================================================
 # FICSIT AuditBot — Portainer / production deployment
 # =============================================================================
-# Pulls the prebuilt image from DockerHub (no local build) and mounts the
-# dedicated-server save directory plus a dedicated app data folder.
+# Pulls the prebuilt image from DockerHub (no local build).
+#
+# Storage is intentionally simple to avoid Portainer variable-substitution
+# issues with bind paths:
+#   * ONE named volume  → /data   (holds state/ and docs/ subfolders)
+#   * ONE bind mount     → /saves  (the Satisfactory server's save folder, RO)
+#
+# The ONLY line you may need to edit is the saves bind source below if your
+# server stores saves somewhere other than the default path.
 #
 # Deploy in Portainer:
-#   1. Stacks → Add stack → Web editor, and paste this file.
-#   2. Under "Environment variables", click "Load variables from .env file"
-#      and upload the .env next to this file (see .env.example).
-#   3. Deploy. Update the image later by re-pulling and recreating the stack.
-#
-# Host paths (override in .env):
-#   SAVES_HOST_DIR  → the server's Satisfactory save folder (read-only)
-#   STATE_HOST_DIR  → app state (snapshots + db.json + config.json)
-#   DOCS_HOST_DIR   → optional game Docs.json/en-US.json folder (read-only)
+#   1. Stacks → Add stack → Web editor, paste this file.
+#   2. (Optional) Environment variables → Load variables from .env file, upload
+#      your .env to set Discord credentials / behaviour. Paths need NO env vars.
+#   3. Deploy.
 # =============================================================================
 
 services:
@@ -22,28 +24,24 @@ services:
     container_name: ficsit-auditbot
     restart: unless-stopped
     ports:
-      # Web UI — http://<host>:<WEB_PORT>
-      - "${WEB_PORT:-8080}:${WEB_PORT:-8080}"
+      # Web UI — http://<host>:8080
+      - "8080:8080"
     environment:
-      SAVES_DIR: /data/saves
-      STATE_DIR: /app/state
-      DOCS_PATH: /data/docs
-      WEB_PORT: "${WEB_PORT:-8080}"
-      WEB_ENABLED: "true"
-      # Polling is more reliable for save changes across bind mounts.
-      WATCH_USE_POLLING: "true"
-      WATCH_DEBOUNCE_MS: "${WATCH_DEBOUNCE_MS:-5000}"
+      # Paths are baked into the image (DATA_DIR=/data, SAVES_DIR=/saves);
+      # only behaviour + Discord are configurable here (optional via .env).
       POST_TO_DISCORD: "${POST_TO_DISCORD:-false}"
       SKIP_EMPTY_SUMMARIES: "${SKIP_EMPTY_SUMMARIES:-true}"
+      WATCH_DEBOUNCE_MS: "${WATCH_DEBOUNCE_MS:-5000}"
       PHASE_COST_MULTIPLIER: "${PHASE_COST_MULTIPLIER:-0}"
       DISCORD_WEBHOOK_URL: "${DISCORD_WEBHOOK_URL:-}"
       DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN:-}"
       DISCORD_CHANNEL_ID: "${DISCORD_CHANNEL_ID:-}"
     volumes:
-      # Satisfactory dedicated-server saves (read-only — we only ever read them).
-      - "${SAVES_HOST_DIR:-/mnt/docker_data/satisfactory/saved/server}:/data/saves:ro"
-      # Persistent app state across restarts (snapshots, db.json, config.json).
-      - "${STATE_HOST_DIR:-/mnt/docker_data/ficsit-auditbot/state}:/app/state"
-      # Optional game docs for real names + unlocks (read-only). Drop a
-      # Docs.json / en-US.json (or the whole CommunityResources folder) here.
-      - "${DOCS_HOST_DIR:-/mnt/docker_data/ficsit-auditbot/docs}:/data/docs:ro"
+      # All app data (state + docs subfolders) on one managed volume.
+      - ficsit-auditbot-data:/data
+      # The Satisfactory dedicated-server saves (read-only). Edit this host
+      # path if your saves live elsewhere.
+      - /mnt/docker_data/satisfactory/saved/server:/saves:ro
+
+volumes:
+  ficsit-auditbot-data:

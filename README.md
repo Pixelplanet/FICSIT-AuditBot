@@ -109,10 +109,11 @@ Edit `.env`:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SAVES_DIR` | `./Saves` | Folder containing your save files |
+| `SAVES_DIR` | `./Saves` | Folder containing your save files (`/saves` in the image) |
 | `CANONICAL_SAVE_SUFFIX` | `_continue.sav` | Which save to track (ignores autosaves) |
-| `DOCS_PATH` | _(auto)_ | Game `Docs.json`/`en-US.json` (file, folder, or install root) for real names |
-| `STATE_DIR` | `./state` | Where snapshots + `db.json` + `config.json` are kept |
+| `DATA_DIR` | _(unset)_ | Single data root; `state/` + `docs/` default under it (`/data` in the image) |
+| `DOCS_PATH` | _(auto)_ | Game `Docs.json`/`en-US.json` (file, folder, or install root); defaults to `<DATA_DIR>/docs` |
+| `STATE_DIR` | `./state` | Where snapshots + `db.json` + `config.json` are kept; defaults to `<DATA_DIR>/state` |
 | `POST_TO_DISCORD` | `false` | `true` to post; otherwise preview/console only |
 | `SKIP_EMPTY_SUMMARIES` | `true` | Don't post when only time changed |
 | `WATCH_DEBOUNCE_MS` | `5000` | Wait after a save write before processing |
@@ -176,8 +177,9 @@ With game data loaded, summaries gain:
 Point `DOCS_PATH` at the file, its folder, an install root, or even a dropped-in
 `CommunityResources` folder — the bot auto-detects the exact file (preferring
 `Docs.json`/`en-US.json` under `CommunityResources/Docs`). In Docker, drop the
-file (or the whole `CommunityResources` folder) into `./docs` (mounted read-only
-at `/data/docs`). Use **Reload game data** in the web UI after changing it.
+file (or the whole `CommunityResources` folder) into the `docs/` subfolder of
+the data volume (`/data/docs`). Use **Reload game data** in the web UI after
+changing it.
 
 > Space Elevator phase **requirements** are not in the game's data dump, so the
 > base amounts are maintained as a small curated table in the code. They are
@@ -216,8 +218,9 @@ type a new one or tick “Clear”.
 
 ## Docker
 
-Docker Desktop is supported via `compose.yaml`. It mounts your saves folder
-read‑only and persists state in `./state`.
+Docker Desktop is supported via `compose.yaml`. It uses a single data folder
+(`./data`, holding `state/` and an optional `docs/`) and mounts your saves
+folder read‑only at `/saves`.
 
 ```powershell
 # Build and run in the background
@@ -231,32 +234,43 @@ docker compose down
 ```
 
 Then open <http://localhost:8080>. Edit `compose.yaml` to point the
-`./Saves:/data/saves:ro` volume at your real server save directory. Configure
+`./Saves:/saves:ro` volume at your real server save directory. Configure
 Discord either in `compose.yaml` env or directly in the web UI.
 
 > `WATCH_USE_POLLING` defaults to `true` in the container because filesystem
 > change events are unreliable across bind mounts.
 
+### Storage layout
+
+The container needs just two mounts:
+
+| Container path | What | Provided by |
+| --- | --- | --- |
+| `/data` | All app data — `state/` (snapshots, `db.json`, `config.json`) and optional `docs/` | One volume (named volume in prod, `./data` locally) |
+| `/saves` | The Satisfactory server's save folder (read‑only) | One bind mount |
+
+Paths are baked into the image via `DATA_DIR=/data` and `SAVES_DIR=/saves`, so
+deployments don't need any path environment variables.
+
 ### Portainer / production
 
 For a server deployment, use `compose.portainer.yaml`, which pulls the prebuilt
 image `pixelplanet/ficsit-auditbot:latest` from DockerHub (no local build) and
-parameterises the host paths via a `.env` file:
+keeps storage deliberately simple to avoid Portainer variable‑substitution
+pitfalls — **one named volume** for `/data` and **one bind** for `/saves`, with
+no `${...}` in any volume path:
 
-1. Copy `.env.example` to `.env` and set the host paths + Discord credentials.
-   Defaults assume a dedicated app folder under `/mnt/docker_data`:
+1. In Portainer: **Stacks → Add stack → Web editor**, paste
+   `compose.portainer.yaml`. The only line you may need to change is the saves
+   bind source (defaults to `/mnt/docker_data/satisfactory/saved/server`).
+2. *(Optional)* Copy `.env.example` to `.env`, set Discord credentials /
+   behaviour, then **Environment variables → Load variables from .env file** and
+   upload it. Volume paths need no env vars.
+3. Deploy.
 
-   | Variable | Default | Purpose |
-   | --- | --- | --- |
-   | `SAVES_HOST_DIR` | `/mnt/docker_data/satisfactory/saved/server` | Server saves (read‑only) |
-   | `STATE_HOST_DIR` | `/mnt/docker_data/ficsit-auditbot/state` | App state (snapshots, db, config) |
-   | `DOCS_HOST_DIR` | `/mnt/docker_data/ficsit-auditbot/docs` | Optional game docs (read‑only) |
-
-2. In Portainer: **Stacks → Add stack → Web editor**, paste
-   `compose.portainer.yaml`, then **Environment variables → Load variables from
-   .env file** and upload your `.env`. Deploy.
-
-The `.env` is git‑ignored, so your credentials never get committed.
+To add game docs for real names/unlocks, drop a `Docs.json` / `en-US.json` into
+the `docs/` subfolder of the named volume (or use **Reload game data** in the
+web UI). The `.env` is git‑ignored, so credentials never get committed.
 
 ## Power balance
 

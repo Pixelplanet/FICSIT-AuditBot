@@ -25,9 +25,10 @@ COPY --from=build /app/dist ./dist
 COPY public ./public
 
 # Default runtime configuration (override via compose / env).
-ENV SAVES_DIR=/data/saves \
-    STATE_DIR=/app/state \
-    DOCS_PATH=/data/docs \
+# DATA_DIR is the single internal data root; state/ and docs/ live under it.
+# SAVES_DIR is a separate bind to the Satisfactory server's save folder.
+ENV DATA_DIR=/data \
+    SAVES_DIR=/saves \
     WEB_PORT=8080 \
     WEB_ENABLED=true \
     WATCH_USE_POLLING=true \
@@ -35,7 +36,7 @@ ENV SAVES_DIR=/data/saves \
 
 EXPOSE 8080
 
-# Persist snapshots + config + db across container restarts.
-VOLUME ["/app/state"]
+# Persist all app data (snapshots + db.json + config.json + optional docs).
+VOLUME ["/data"]
 
 CMD ["node", "dist/index.js"]

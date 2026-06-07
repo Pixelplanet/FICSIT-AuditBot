@@ -1,17 +1,14 @@
 services:
-  satisfactory-summary-bot:
+  ficsit-auditbot:
     build: .
-    image: satisfactory-summary-bot:latest
-    container_name: satisfactory-summary-bot
+    image: pixelplanet/ficsit-auditbot:latest
+    container_name: ficsit-auditbot
     restart: unless-stopped
     ports:
       # Host:Container — open http://localhost:8080 for the web UI.
       - "8080:8080"
     environment:
-      SAVES_DIR: /data/saves
-      STATE_DIR: /app/state
-      # Path to the game's Docs.json/en-US.json for real names + unlock info.
-      DOCS_PATH: /data/docs
+      # Paths are baked into the image: DATA_DIR=/data, SAVES_DIR=/saves.
       WEB_PORT: "8080"
       WEB_ENABLED: "true"
       # Polling is more reliable for save changes across bind mounts.
@@ -25,12 +22,10 @@ services:
       # DISCORD_BOT_TOKEN: ""
       # DISCORD_CHANNEL_ID: ""
     volumes:
+      # One internal data folder: holds state/ (snapshots, db.json, config.json)
+      # and an optional docs/ subfolder (drop Docs.json / en-US.json there).
+      - ./data:/data
       # Mount your Satisfactory saves folder (read-only) into the container.
-      # For local debugging this points at the bundled ./Saves folder.
-      - ./Saves:/data/saves:ro
-      # Mount the game's Docs folder (read-only) to resolve real names + unlocks.
-      # Point the host side at <install>/CommunityResources/Docs (contains Docs.json
-      # or en-US.json). Comment out if unavailable; names degrade gracefully.
-      - ./docs:/data/docs:ro
-      # Persist snapshots, db.json and config.json across restarts.
-      - ./state:/app/state
+      # For local debugging this points at the bundled ./Saves folder; point it
+      # at your real server save directory for production-like testing.
+      - ./Saves:/saves:ro
