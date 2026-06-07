@@ -40,7 +40,7 @@ export interface ComputeResult {
 export async function computeSummary(
   savePath: string,
   store: StateStore,
-  options: { phaseCostMultiplierOverride?: number } = {},
+  options: { phaseCostMultiplierOverride?: number; summarySections?: AppConfig['summarySections'] } = {},
 ): Promise<ComputeResult> {
   const hash = await hashFile(savePath);
   const previous = store.get();
@@ -56,7 +56,7 @@ export async function computeSummary(
   const delta = diffWorldStates(previous.lastWorldState, worldState, {
     phaseCostMultiplierOverride: options.phaseCostMultiplierOverride,
   });
-  const summary = formatSummary(delta);
+  const summary = formatSummary(delta, { sections: options.summarySections });
   return { hash, worldState, delta, summary, isFirstRun: false, unchanged };
 }
 
@@ -64,7 +64,7 @@ export async function computeSummary(
 export async function computeSummaryBetween(
   beforePath: string,
   afterPath: string,
-  options: { phaseCostMultiplierOverride?: number } = {},
+  options: { phaseCostMultiplierOverride?: number; summarySections?: AppConfig['summarySections'] } = {},
 ): Promise<{ before: WorldState; after: WorldState; delta: WorldDelta; summary: SummaryResult }> {
   const [beforeSave, afterSave] = await Promise.all([
     parseSaveFile(beforePath),
@@ -75,7 +75,7 @@ export async function computeSummaryBetween(
   const delta = diffWorldStates(before, after, {
     phaseCostMultiplierOverride: options.phaseCostMultiplierOverride,
   });
-  const summary = formatSummary(delta);
+  const summary = formatSummary(delta, { sections: options.summarySections });
   return { before, after, delta, summary };
 }
 
@@ -87,6 +87,7 @@ export async function processSave(
 ): Promise<ProcessResult> {
   const computed = await computeSummary(savePath, store, {
     phaseCostMultiplierOverride: config.phaseCostMultiplier,
+    summarySections: config.summarySections,
   });
 
   if (computed.unchanged) {

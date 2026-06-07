@@ -44,10 +44,8 @@ function isTabActive(name) {
 function setStatusMessage(message) {
   const html = `<tr><td>Status</td><td>${escapeHtml(message)}</td></tr>`;
   lastStatusHtml = html;
-  for (const id of ['statusTable', 'apiStatusTable']) {
-    const table = document.getElementById(id);
-    if (table) table.innerHTML = html;
-  }
+  const table = document.getElementById('statusTable');
+  if (table) table.innerHTML = html;
 }
 
 document.querySelectorAll('.tab').forEach((tab) => {
@@ -78,6 +76,15 @@ async function loadConfig() {
     f.watchUsePolling.checked = !!cfg.watchUsePolling;
     f.watchDebounceMs.value = cfg.watchDebounceMs ?? 5000;
     f.phaseCostMultiplier.value = cfg.phaseCostMultiplier ?? 0;
+    f.summaryMilestones.checked = cfg.summarySections?.milestones !== false;
+    f.summaryResearch.checked = cfg.summarySections?.research !== false;
+    f.summaryAlternateRecipes.checked = cfg.summarySections?.alternateRecipes !== false;
+    f.summaryProjectAssembly.checked = cfg.summarySections?.projectAssembly !== false;
+    f.summaryPower.checked = cfg.summarySections?.power !== false;
+    f.summaryLogistics.checked = cfg.summarySections?.logistics !== false;
+    f.summaryFactories.checked = cfg.summarySections?.factories !== false;
+    f.summaryStorage.checked = cfg.summarySections?.storage !== false;
+    f.summaryAda.checked = cfg.summarySections?.ada !== false;
     f.serverApiUrl.value = cfg.serverApi?.url || '';
     f.serverApiAllowInsecureTls.checked = !!cfg.serverApi?.allowInsecureTls;
     f.serverApiTimeoutMs.value = cfg.serverApi?.timeoutMs ?? 5000;
@@ -156,6 +163,17 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
     watchUsePolling: f.watchUsePolling.checked,
     watchDebounceMs: Number(f.watchDebounceMs.value),
     phaseCostMultiplier: Number(f.phaseCostMultiplier.value),
+    summarySections: {
+      milestones: f.summaryMilestones.checked,
+      research: f.summaryResearch.checked,
+      alternateRecipes: f.summaryAlternateRecipes.checked,
+      projectAssembly: f.summaryProjectAssembly.checked,
+      power: f.summaryPower.checked,
+      logistics: f.summaryLogistics.checked,
+      factories: f.summaryFactories.checked,
+      storage: f.summaryStorage.checked,
+      ada: f.summaryAda.checked,
+    },
     webPort: Number(f.webPort.value),
     serverApi: {
       url: f.serverApiUrl.value.trim(),
@@ -221,10 +239,8 @@ async function loadStatus(options = {}) {
       .join('');
     if ((isTabActive('status') || !lastStatusHtml || !silent) && tableHtml !== lastStatusHtml) {
       lastStatusHtml = tableHtml;
-      for (const id of ['statusTable', 'apiStatusTable']) {
-        const table = document.getElementById(id);
-        if (table) table.innerHTML = tableHtml;
-      }
+      const table = document.getElementById('statusTable');
+      if (table) table.innerHTML = tableHtml;
     }
 
     const pill = document.getElementById('statusPill');

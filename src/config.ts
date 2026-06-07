@@ -10,6 +10,7 @@
 import 'dotenv/config';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { withDefaultSummarySections, type SummarySectionToggles } from './summary/format.js';
 
 export interface DiscordConfig {
   webhookUrl?: string;
@@ -61,6 +62,8 @@ export interface EditableSettings {
   webEnabled: boolean;
   /** Port the web UI listens on. */
   webPort: number;
+  /** Toggle which summary sections are rendered for posting/preview. */
+  summarySections: SummarySectionToggles;
   discord: DiscordConfig;
   serverApi: ServerApiConfig;
 }
@@ -85,6 +88,7 @@ export interface PublicConfig {
   watchUsePolling: boolean;
   webEnabled: boolean;
   webPort: number;
+  summarySections: SummarySectionToggles;
   serverApi: {
     url?: string;
     tokenSet: boolean;
@@ -112,6 +116,7 @@ export interface SettingsPatch {
   watchUsePolling?: boolean;
   webEnabled?: boolean;
   webPort?: number;
+  summarySections?: Partial<SummarySectionToggles>;
   serverApi?: {
     url?: string;
     token?: string | null;
@@ -189,6 +194,7 @@ function envDefaults(): EditableSettings {
     watchUsePolling: bool(process.env.WATCH_USE_POLLING, false),
     webEnabled: bool(process.env.WEB_ENABLED, true),
     webPort: int(process.env.WEB_PORT, 8080),
+    summarySections: withDefaultSummarySections(),
     serverApi: {
       url: optional(process.env.SERVER_API_URL),
       token: optional(process.env.SERVER_API_TOKEN),
@@ -248,6 +254,7 @@ export class ConfigManager {
       watchUsePolling: s.watchUsePolling,
       webEnabled: s.webEnabled,
       webPort: s.webPort,
+      summarySections: s.summarySections,
       serverApi: {
         url: s.serverApi.url,
         tokenSet: Boolean(s.serverApi.token),
@@ -295,6 +302,7 @@ function mergeSettings(base: EditableSettings, saved: Partial<EditableSettings>)
     ...base,
     ...saved,
     savesDir: saved.savesDir ? resolve(saved.savesDir) : base.savesDir,
+    summarySections: withDefaultSummarySections(saved.summarySections ?? base.summarySections),
     serverApi: { ...base.serverApi, ...(saved.serverApi ?? {}) },
     discord: { ...base.discord, ...(saved.discord ?? {}) },
   };
@@ -322,6 +330,12 @@ function applyPatch(current: EditableSettings, patch: SettingsPatch): EditableSe
   if (patch.watchUsePolling !== undefined) next.watchUsePolling = patch.watchUsePolling;
   if (patch.webEnabled !== undefined) next.webEnabled = patch.webEnabled;
   if (patch.webPort !== undefined) next.webPort = Math.max(1, Math.floor(patch.webPort));
+  if (patch.summarySections) {
+    next.summarySections = withDefaultSummarySections({
+      ...next.summarySections,
+      ...patch.summarySections,
+    });
+  }
 
   if (patch.serverApi) {
     if (patch.serverApi.url !== undefined) {
@@ -373,8 +387,15 @@ function diffKeys(before: EditableSettings, after: EditableSettings): Set<string
     'watchUsePolling',
     'webEnabled',
     'webPort',
+    'summarySections',
   ];
   for (const key of topKeys) {
+    if (key === 'summarySections') {
+      if (JSON.stringify(before.summarySections) !== JSON.stringify(after.summarySections)) {
+        changed.add(key);
+      }
+      continue;
+    }
     if (before[key] !== after[key]) changed.add(key);
   }
   if (

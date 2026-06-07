@@ -250,6 +250,7 @@ export class Runtime {
 
     const computed = await computeSummary(savePath, this.store, {
       phaseCostMultiplierOverride: this.config.phaseCostMultiplier,
+      summarySections: this.config.summarySections,
     });
     const source = `baseline → ${basename(savePath)}`;
     let entry: PreviewEntry;
@@ -272,6 +273,7 @@ export class Runtime {
   async previewBetween(beforePath: string, afterPath: string): Promise<PreviewEntry> {
     const { delta, summary } = await computeSummaryBetween(beforePath, afterPath, {
       phaseCostMultiplierOverride: this.config.phaseCostMultiplier,
+      summarySections: this.config.summarySections,
     });
     const entry: PreviewEntry = {
       generatedAt: new Date().toISOString(),

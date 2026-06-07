@@ -41,10 +41,43 @@ export interface FormatOptions {
   rng?: () => number;
   /** Set to `false` to omit the ADA closing remark entirely. */
   includeAda?: boolean;
+  /** Toggle high-level summary sections on/off. */
+  sections?: Partial<SummarySectionToggles>;
+}
+
+export interface SummarySectionToggles {
+  milestones: boolean;
+  research: boolean;
+  alternateRecipes: boolean;
+  projectAssembly: boolean;
+  power: boolean;
+  logistics: boolean;
+  factories: boolean;
+  storage: boolean;
+  ada: boolean;
+}
+
+const DEFAULT_SECTIONS: SummarySectionToggles = {
+  milestones: true,
+  research: true,
+  alternateRecipes: true,
+  projectAssembly: true,
+  power: true,
+  logistics: true,
+  factories: true,
+  storage: true,
+  ada: true,
+};
+
+export function withDefaultSummarySections(
+  sections?: Partial<SummarySectionToggles>,
+): SummarySectionToggles {
+  return { ...DEFAULT_SECTIONS, ...(sections ?? {}) };
 }
 
 export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): SummaryResult {
   const { rng = Math.random, includeAda = true } = options;
+  const sections = withDefaultSummarySections(options.sections);
   const lines: string[] = [];
   const fields: SummaryEmbedField[] = [];
 
@@ -59,7 +92,7 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
 
   // --- Milestones ---
   const milestones = delta.newSchematics.milestone;
-  if (milestones.length > 0) {
+  if (sections.milestones && milestones.length > 0) {
     const list = renderSchematicList(milestones);
     lines.push(`\n🏁 **New milestones (${milestones.length})**\n${list}`);
     fields.push({ name: `🏁 New milestones (${milestones.length})`, value: list });
@@ -67,7 +100,7 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
 
   // --- MAM research ---
   const research = delta.newSchematics.research;
-  if (research.length > 0) {
+  if (sections.research && research.length > 0) {
     const list = renderSchematicList(research);
     lines.push(`\n🔬 **New research (${research.length})**\n${list}`);
     fields.push({ name: `🔬 New research (${research.length})`, value: list });
@@ -75,7 +108,7 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
 
   // --- Alternate recipes ---
   const alts = delta.newSchematics.alternateRecipe;
-  if (alts.length > 0) {
+  if (sections.alternateRecipes && alts.length > 0) {
     const list = renderSchematicList(alts);
     lines.push(`\n🧪 **New alternate recipes (${alts.length})**\n${list}`);
     fields.push({ name: `🧪 New alternate recipes (${alts.length})`, value: list });
@@ -83,7 +116,7 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
 
   // --- Game phase / space elevator ---
   const phaseLines = formatPhase(delta);
-  if (phaseLines.length > 0) {
+  if (sections.projectAssembly && phaseLines.length > 0) {
     const block = phaseLines.join('\n');
     const heading = delta.phaseProgress
       ? `🚀 Project Assembly — ${delta.phaseProgress.phaseName}`
@@ -94,7 +127,7 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
 
   // --- Power ---
   const powerLines = formatPower(delta);
-  if (powerLines.length > 0) {
+  if (sections.power && powerLines.length > 0) {
     const block = powerLines.join('\n');
     lines.push(`\n⚡ **Power**\n${block}`);
     fields.push({ name: '⚡ Power', value: block });
@@ -102,7 +135,7 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
 
   // --- Logistics ---
   const logisticsDeltas = delta.buildingDeltas.filter((b) => b.category === 'logistics' && b.delta !== 0);
-  if (logisticsDeltas.length > 0) {
+  if (sections.logistics && logisticsDeltas.length > 0) {
     const list = renderList(logisticsDeltas.map((b) => `${signed(b.delta)} ${b.name} (now ${b.after})`));
     lines.push(`\n🚆 **Logistics**\n${list}`);
     fields.push({ name: '🚆 Logistics', value: list });
@@ -112,42 +145,28 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
   const factoryDeltas = delta.buildingDeltas.filter(
     (b) => (b.category === 'production' || b.category === 'extraction') && b.delta !== 0,
   );
-  if (factoryDeltas.length > 0) {
+  if (sections.factories && factoryDeltas.length > 0) {
     const list = renderList(factoryDeltas.map((b) => `${signed(b.delta)} ${b.name} (now ${b.after})`));
     lines.push(`\n🏭 **Factories**\n${list}`);
     fields.push({ name: '🏭 Factories', value: list });
   }
 
   // --- Storage ---
-  const storageDeltas = delta.buildingDeltas.filter((b) => b.category === 'storage' && b.delta !== 0);
+  const storageDeltas = delta.buildingDeltas.filter(
+    (b) =>
+      b.category === 'storage' &&
+      b.delta !== 0 &&
+      (b.id === 'Build_StorageContainerMk1' ||
+        b.id === 'Build_StorageContainerMk2' ||
+        b.id === 'Build_CentralStorage' ||
+        b.id === 'Desc_CentralStorage'),
+  );
   const storageLines: string[] = [];
-  const depotUploaderDelta = storageDeltas.find((b) => b.id === 'Build_CentralStorage' || b.id === 'Desc_CentralStorage');
   if (storageDeltas.length > 0) {
     storageLines.push(renderList(storageDeltas.map((b) => `${signed(b.delta)} ${b.name} (now ${b.after})`)));
   }
 
-  if (delta.storage.dimensionalDepotUploaders > 0 && !depotUploaderDelta) {
-    storageLines.push(
-      `• Dimensional Depot Uploaders: **${delta.storage.dimensionalDepotUploaders}**`,
-    );
-  }
-  if (delta.storage.dimensionalDepotItems.length > 0) {
-    storageLines.push('• Dimensional Depot contents (known):');
-    storageLines.push(
-      renderList(
-        delta.storage.dimensionalDepotItems.map((item) => `${num(item.amount)}× ${item.name}`),
-      ),
-    );
-  }
-
-  const knownInventoryItems = delta.storage.knownInventoryItems ?? [];
-  if (knownInventoryItems.length > 0) {
-    const topKnown = knownInventoryItems.slice(0, 20);
-    storageLines.push('• Other inventories (containers/machines/player, known):');
-    storageLines.push(renderList(topKnown.map((item) => `${num(item.amount)}× ${item.name}`)));
-  }
-
-  if (storageLines.length > 0) {
+  if (sections.storage && storageLines.length > 0) {
     const block = storageLines.join('\n');
     lines.push(`\n📦 **Storage**\n${block}`);
     fields.push({ name: '📦 Storage', value: block });
@@ -164,7 +183,7 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
     : `Here's what changed since the last save.\n\n${timeLine}`;
 
   // ADA's closing remark — tone matched to how much was accomplished.
-  const adaLine = includeAda ? pickAdaLine(delta, rng) : undefined;
+  const adaLine = includeAda && sections.ada ? pickAdaLine(delta, rng) : undefined;
   if (adaLine) {
     lines.push(`\n> _${adaLine}_\n> — ADA`);
     fields.push({ name: '\u2014 ADA', value: `_${adaLine}_` });
