@@ -86,8 +86,6 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
   // --- Time elapsed ---
   const playtime = formatDuration(delta.playtimeDeltaSeconds);
   const totalPlaytime = formatDuration(delta.playtimeAfterSeconds);
-  const timeLine = `⏱️ **${playtime}** of factory time passed (total ${totalPlaytime}).`;
-  lines.push(timeLine);
   fields.push({ name: '⏱️ Time elapsed', value: `${playtime} (total ${totalPlaytime})` });
 
   // --- Milestones ---
