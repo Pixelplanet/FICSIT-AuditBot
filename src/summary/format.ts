@@ -86,7 +86,8 @@ export function formatSummary(delta: WorldDelta, options: FormatOptions = {}): S
   // --- Time elapsed ---
   const playtime = formatDuration(delta.playtimeDeltaSeconds);
   const totalPlaytime = formatDuration(delta.playtimeAfterSeconds);
-  fields.push({ name: '⏱️ Time elapsed', value: `${playtime} (total ${totalPlaytime})` });
+  const timeLine = `⏱️ **${playtime}** of factory time passed (total ${totalPlaytime}).`;
+  lines.push(timeLine);
 
   // --- Milestones ---
   const milestones = delta.newSchematics.milestone;
@@ -249,11 +250,11 @@ function formatPhase(delta: WorldDelta): string[] {
   const hadActivity = out.length > 0;
   if (progress && hadActivity) {
     const pct = Math.round(progress.fraction * 100);
-    const mult = progress.multiplier !== 1 ? ` (×${formatMultiplier(progress.multiplier)} parts cost)` : '';
-    out.push(`Progress: **${pct}%**${mult}${progress.complete ? ' ✅ ready to launch' : ''}`);
+    const mult = progress.multiplier !== 1 ? ` (\u00D7${formatMultiplier(progress.multiplier)} parts cost)` : '';
+    out.push(`Progress: **${pct}%**${mult}${progress.complete ? ' \u2705 ready to launch' : ''}`);
     for (const part of progress.parts) {
       const done = part.delivered >= part.required ? ' ✅' : '';
-      out.push(`• ${part.name}: ${num(part.delivered)} / ${num(part.required)}${done}`);
+      out.push(`\u2022 ${part.name}: ${num(part.delivered)} / ${num(part.required)}${done}`);
     }
   }
   return out;
