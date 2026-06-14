@@ -323,6 +323,12 @@ async function loadSaves() {
     const after = document.getElementById('selAfter');
     const opts = saves
       .map((s) => {
+        if (s.isHistory) {
+          // History entries already include the capture timestamp in their
+          // display name – no need for an extra relative-time suffix.
+          const star = s.isCanonical ? ' ★' : '';
+          return `<option value="${escapeHtml(s.path)}">${escapeHtml(s.name)}${star}</option>`;
+        }
         const rel = fmtRelativeTime(s.mtimeMs);
         const abs = fmtAbsoluteTime(s.mtimeMs);
         const star = s.isCanonical ? ' ★' : '';

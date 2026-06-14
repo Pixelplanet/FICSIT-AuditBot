@@ -20,6 +20,7 @@ import {
   type ProcessResult,
 } from './processor.js';
 import { snapshotPaths, storeSnapshot, hashFile } from './save/snapshot.js';
+import { listHistory } from './save/history.js';
 import { findCanonicalSave, watchSaves, type SaveWatcher } from './watcher.js';
 import type { SummaryResult } from './summary/format.js';
 import { discoverDocsPath, setDocsIndex } from './data/docsProvider.js';
@@ -435,8 +436,8 @@ export class Runtime {
     };
   }
 
-  /** List save files in the saves directory with basic metadata. */
-  async listSaves(): Promise<{ name: string; path: string; mtimeMs: number; sizeBytes: number; isCanonical: boolean }[]> {
+  /** List save files in the saves directory with basic metadata, plus history. */
+  async listSaves(): Promise<{ name: string; path: string; mtimeMs: number; sizeBytes: number; isCanonical: boolean; isHistory?: boolean }[]> {
     const { readdir } = await import('node:fs/promises');
     const { join } = await import('node:path');
     const config = this.config;
@@ -444,11 +445,11 @@ export class Runtime {
     try {
       names = await readdir(config.savesDir);
     } catch {
-      return [];
+      names = [];
     }
     const suffix = config.canonicalSaveSuffix.toLowerCase();
     const saves = names.filter((n) => n.toLowerCase().endsWith('.sav'));
-    const out: { name: string; path: string; mtimeMs: number; sizeBytes: number; isCanonical: boolean }[] = [];
+    const out: { name: string; path: string; mtimeMs: number; sizeBytes: number; isCanonical: boolean; isHistory?: boolean }[] = [];
     for (const name of saves) {
       const path = join(config.savesDir, name);
       const info = await stat(path).catch(() => undefined);
@@ -462,6 +463,25 @@ export class Runtime {
       });
     }
     out.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+    // Prepend history entries (newest first) so users can diff any two
+    // points in time without keeping every autosave on disk.
+    try {
+      const history = await listHistory(config.stateDir);
+      for (const h of history) {
+        out.unshift({
+          name: `📦 ${h.capturedAt.slice(0, 16).replace('T', ' ')} — ${h.originalName}`,
+          path: h.path,
+          mtimeMs: h.mtimeMs,
+          sizeBytes: h.sizeBytes,
+          isCanonical: false,
+          isHistory: true,
+        });
+      }
+    } catch {
+      // History directory may not exist yet – ignore.
+    }
+
     return out;
   }
 

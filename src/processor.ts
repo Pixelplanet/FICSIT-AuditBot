@@ -12,6 +12,7 @@ import type { StateStore } from './state/store.js';
 import type { WorldState } from './model.js';
 import { parseSaveFile } from './save/parser.js';
 import { hashFile, storeSnapshot } from './save/snapshot.js';
+import { storeHistoryEntry } from './save/history.js';
 import { extractWorldState } from './extract/index.js';
 import { diffWorldStates, type WorldDelta } from './diff/compare.js';
 import { formatSummary, type SummaryResult } from './summary/format.js';
@@ -99,6 +100,7 @@ export async function processSave(
   if (computed.isFirstRun) {
     await storeSnapshot(config.stateDir, savePath);
     await persistBaseline(config, store, savePath, computed.hash, computed.worldState);
+    await storeHistoryEntry(config.stateDir, savePath, computed.worldState.playDurationSeconds);
     return {
       status: 'baseline-set',
       message: 'Baseline established from first save (no previous state to compare).',
@@ -125,6 +127,10 @@ export async function processSave(
 
   // Persist the new baseline regardless of delivery outcome.
   await persistBaseline(config, store, savePath, computed.hash, computed.worldState);
+
+  // Keep a timestamped copy in the history so users can compare any two
+  // points in time (and restore from the copies if needed).
+  await storeHistoryEntry(config.stateDir, savePath, computed.worldState.playDurationSeconds);
 
   return { status, message: statusMessage(status, isEmpty), summary: safeSummary };
 }
