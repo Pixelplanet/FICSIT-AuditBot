@@ -135,6 +135,8 @@ function serializePreview(entry: import('../preview/store.js').PreviewEntry | un
     status: entry.status,
     text: entry.summary?.text,
     embed: entry.summary ? toDiscordEmbed(entry.summary.embed) : undefined,
+    beforePath: entry.beforePath,
+    afterPath: entry.afterPath,
   };
 }
 

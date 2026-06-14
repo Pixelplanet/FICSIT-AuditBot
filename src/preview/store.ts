@@ -16,6 +16,10 @@ export interface PreviewEntry {
   /** Status from a live run, if applicable (posted / console-only / …). */
   status?: string;
   summary?: SummaryResult;
+  /** Absolute path to the "before" save file used in this comparison. */
+  beforePath?: string;
+  /** Absolute path to the "after" save file used in this comparison. */
+  afterPath?: string;
 }
 
 export class PreviewStore {

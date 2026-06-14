@@ -94,8 +94,10 @@ export async function processSave(
     return { status: 'skipped-unchanged', message: 'Save unchanged since last run.' };
   }
 
-  // First run: just establish the baseline, nothing to diff against.
+  // First run: establish the baseline AND create the initial snapshot
+  // so that previews have a meaningful comparison point.
   if (computed.isFirstRun) {
+    await storeSnapshot(config.stateDir, savePath);
     await persistBaseline(config, store, savePath, computed.hash, computed.worldState);
     return {
       status: 'baseline-set',
@@ -128,13 +130,16 @@ export async function processSave(
 }
 
 async function persistBaseline(
-  config: AppConfig,
+  _config: AppConfig,
   store: StateStore,
-  savePath: string,
+  _savePath: string,
   hash: string,
   worldState: WorldState,
 ): Promise<void> {
-  await storeSnapshot(config.stateDir, savePath);
+  // Note: the snapshot (previous.sav) is NOT updated here – it is only
+  // advanced when the user clicks "Process now" in the web UI, so previews
+  // always compare against a meaningful baseline rather than the last
+  // autosave (which would only yield a few minutes of diff).
   await store.update({
     lastSaveHash: hash,
     lastSaveName: worldState.saveName,

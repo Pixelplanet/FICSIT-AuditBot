@@ -232,6 +232,7 @@ export class Runtime {
    */
   async processNow(): Promise<{ status: string; message: string }> {
     const savePath = await findCanonicalSave(this.config);
+    const { previousSave } = snapshotPaths(this.config.stateDir);
     if (!savePath) {
       const entry: PreviewEntry = {
         generatedAt: new Date().toISOString(),
@@ -239,12 +240,12 @@ export class Runtime {
         live: true,
         kind: 'unchanged',
         status: 'no-save',
+        beforePath: previousSave,
       };
       this.previewStore.set(entry);
       return { status: 'no-save', message: 'No canonical save found.' };
     }
 
-    const { previousSave } = snapshotPaths(this.config.stateDir);
     const snapshotExists = await stat(previousSave).then(() => true).catch(() => false);
 
     if (!snapshotExists) {
@@ -265,6 +266,8 @@ export class Runtime {
         live: true,
         kind: 'first-run',
         status: 'baseline-set',
+        beforePath: previousSave,
+        afterPath: savePath,
       };
       this.previewStore.set(entry);
       return { status: 'baseline-set', message: 'Baseline established from first save (no previous snapshot to compare).' };
@@ -293,6 +296,8 @@ export class Runtime {
       kind: delta.isEmpty ? 'empty' : 'summary',
       status: 'snapshot-advanced',
       summary,
+      beforePath: previousSave,
+      afterPath: savePath,
     };
     this.previewStore.set(entry);
 
@@ -311,18 +316,19 @@ export class Runtime {
    */
   private async previewAgainstSnapshot(): Promise<PreviewEntry> {
     const savePath = await findCanonicalSave(this.config);
+    const { previousSave } = snapshotPaths(this.config.stateDir);
     if (!savePath) {
       const entry: PreviewEntry = {
         generatedAt: new Date().toISOString(),
         source: 'snapshot → (no canonical save found)',
         live: false,
         kind: 'unchanged',
+        beforePath: previousSave,
       };
       this.previewStore.set(entry);
       return entry;
     }
 
-    const { previousSave } = snapshotPaths(this.config.stateDir);
     let snapshotExists = false;
     try {
       await stat(previousSave);
@@ -335,6 +341,8 @@ export class Runtime {
         source: `snapshot → ${basename(savePath)}`,
         live: false,
         kind: 'first-run',
+        beforePath: previousSave,
+        afterPath: savePath,
       };
       this.previewStore.set(entry);
       return entry;
@@ -350,6 +358,8 @@ export class Runtime {
       live: false,
       kind: delta.isEmpty ? 'empty' : 'summary',
       summary,
+      beforePath: previousSave,
+      afterPath: savePath,
     };
     this.previewStore.set(entry);
     return entry;
@@ -367,6 +377,8 @@ export class Runtime {
       live: false,
       kind: delta.isEmpty ? 'empty' : 'summary',
       summary,
+      beforePath,
+      afterPath,
     };
     this.previewStore.set(entry);
     return entry;

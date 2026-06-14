@@ -364,6 +364,7 @@ function renderPreview(p) {
         : p.kind === 'unchanged'
         ? 'No canonical save found.'
         : 'No summary available.';
+    setDropdownPaths(p.beforePath, p.afterPath);
     return;
   }
 
@@ -383,6 +384,9 @@ function renderPreview(p) {
 
   document.getElementById('rawText').textContent = p.text || '';
   document.getElementById('rawJson').textContent = JSON.stringify(e, null, 2);
+
+  // Auto-select the actual save files that were compared in the dropdowns.
+  setDropdownPaths(p.beforePath, p.afterPath);
 }
 
 document.getElementById('btnPreviewBaseline').addEventListener('click', async () => {
@@ -447,6 +451,38 @@ async function refreshLatestPreview() {
   } catch {
     // ignore background preview refresh failures
   }
+}
+
+/**
+ * Update the Before / After dropdowns to reflect the exact save files that
+ * were used in the last comparison.  If a path is not currently listed in the
+ * dropdown (e.g. the snapshot file lives outside the saves directory), a
+ * temporary option is prepended.
+ */
+function setDropdownPaths(beforePath, afterPath) {
+  if (beforePath) setDropdownValue('selBefore', beforePath, 'snapshot (previous.sav)');
+  if (afterPath) setDropdownValue('selAfter', afterPath, null);
+}
+
+function setDropdownValue(selectId, targetPath, fallbackLabel) {
+  const sel = document.getElementById(selectId);
+  if (!sel || !targetPath) return;
+  // Check if the path already exists as an option
+  for (const opt of sel.options) {
+    if (opt.value === targetPath) {
+      sel.value = targetPath;
+      return;
+    }
+  }
+  // Not found – add a temporary option so the user can see what was used
+  if (fallbackLabel) {
+    const opt = document.createElement('option');
+    opt.value = targetPath;
+    opt.textContent = fallbackLabel;
+    opt.dataset.temp = '1';
+    sel.insertBefore(opt, sel.firstChild);
+  }
+  sel.value = targetPath;
 }
 
 function escapeHtml(s) {
