@@ -33,6 +33,30 @@ function fmtDuration(totalSeconds) {
   return `${s}s`;
 }
 
+function fmtRelativeTime(mtimeMs) {
+  const now = Date.now();
+  const diffMs = now - mtimeMs;
+  if (diffMs < 0) return 'in the future';
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 10) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
+function fmtAbsoluteTime(mtimeMs) {
+  const d = new Date(mtimeMs);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 let currentPreview = null;
 let lastStatusHtml = '';
 let lastLogsText = '';
@@ -298,7 +322,12 @@ async function loadSaves() {
     const before = document.getElementById('selBefore');
     const after = document.getElementById('selAfter');
     const opts = saves
-      .map((s) => `<option value="${escapeHtml(s.path)}">${escapeHtml(s.name)}${s.isCanonical ? ' ★' : ''}</option>`)
+      .map((s) => {
+        const rel = fmtRelativeTime(s.mtimeMs);
+        const abs = fmtAbsoluteTime(s.mtimeMs);
+        const star = s.isCanonical ? ' ★' : '';
+        return `<option value="${escapeHtml(s.path)}">${escapeHtml(s.name)} — ${rel} (${abs})${star}</option>`;
+      })
       .join('');
     before.innerHTML = opts;
     after.innerHTML = opts;
@@ -331,9 +360,9 @@ function renderPreview(p) {
     body.classList.add('hidden');
     empty.textContent =
       p.kind === 'first-run'
-        ? 'This save would become the baseline (nothing to compare yet).'
+        ? 'No snapshot baseline exists yet. Click "Process now" to establish one.'
         : p.kind === 'unchanged'
-        ? 'No canonical save found / nothing changed.'
+        ? 'No canonical save found.'
         : 'No summary available.';
     return;
   }
@@ -380,8 +409,8 @@ document.getElementById('btnPreviewBetween').addEventListener('click', async () 
 document.getElementById('btnProcessNow').addEventListener('click', async () => {
   try {
     const r = await sendJSON('/api/process-now', 'POST');
-    toast(`Processed: ${r.status}`, 'ok');
-    setTimeout(refreshLatestPreview, 600);
+    toast(`Snapshot: ${r.message}`, 'ok');
+    await refreshLatestPreview();
     void loadStatus();
   } catch (err) {
     toast('Process failed: ' + err.message, 'err');

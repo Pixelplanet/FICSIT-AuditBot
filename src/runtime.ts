@@ -15,11 +15,11 @@ import { DiscordDispatcher } from './discord/index.js';
 import { StateStore } from './state/store.js';
 import { PreviewStore, type PreviewEntry } from './preview/store.js';
 import {
-  computeSummary,
   computeSummaryBetween,
   processSave,
   type ProcessResult,
 } from './processor.js';
+import { snapshotPaths, storeSnapshot, hashFile } from './save/snapshot.js';
 import { findCanonicalSave, watchSaves, type SaveWatcher } from './watcher.js';
 import type { SummaryResult } from './summary/format.js';
 import { discoverDocsPath, setDocsIndex } from './data/docsProvider.js';
@@ -224,23 +224,97 @@ export class Runtime {
     this.previewStore.set(entry);
   }
 
-  /** Trigger a live process of the current canonical save now (UI button). */
+  /**
+   * Process the current canonical save now (UI button).  Compares against the
+   * persisted snapshot, stores a preview entry so the UI can render it, and
+   * – crucially – advances the snapshot baseline (copies the current save to
+   * snapshots/previous.sav).  Never posts to Discord.
+   */
   async processNow(): Promise<{ status: string; message: string }> {
-    const savePath = await findCanonicalSave(this.config);
-    if (!savePath) {
-      return { status: 'no-save', message: 'No canonical save found.' };
-    }
-    await this.enqueue(savePath);
-    return this.lastResult ?? { status: 'unknown', message: 'Processed.' };
-  }
-
-  /** Preview the current canonical save vs the baseline, without posting. */
-  async previewAgainstBaseline(): Promise<PreviewEntry> {
     const savePath = await findCanonicalSave(this.config);
     if (!savePath) {
       const entry: PreviewEntry = {
         generatedAt: new Date().toISOString(),
-        source: 'baseline → (no canonical save found)',
+        source: 'snapshot → (no canonical save found)',
+        live: true,
+        kind: 'unchanged',
+        status: 'no-save',
+      };
+      this.previewStore.set(entry);
+      return { status: 'no-save', message: 'No canonical save found.' };
+    }
+
+    const { previousSave } = snapshotPaths(this.config.stateDir);
+    const snapshotExists = await stat(previousSave).then(() => true).catch(() => false);
+
+    if (!snapshotExists) {
+      // First run: parse the save, persist it as the new baseline, no diff.
+      const hash = await hashFile(savePath);
+      const save = await (await import('./save/parser.js')).parseSaveFile(savePath);
+      const worldState = (await import('./extract/index.js')).extractWorldState(save);
+      await storeSnapshot(this.config.stateDir, savePath);
+      await this.store.update({
+        lastSaveHash: hash,
+        lastSaveName: worldState.saveName,
+        lastProcessedAt: new Date().toISOString(),
+        lastWorldState: worldState,
+      });
+      const entry: PreviewEntry = {
+        generatedAt: new Date().toISOString(),
+        source: `snapshot → ${basename(savePath)}`,
+        live: true,
+        kind: 'first-run',
+        status: 'baseline-set',
+      };
+      this.previewStore.set(entry);
+      return { status: 'baseline-set', message: 'Baseline established from first save (no previous snapshot to compare).' };
+    }
+
+    // Diff current save against the persisted snapshot.
+    const { after: worldState, delta, summary } = await computeSummaryBetween(previousSave, savePath, {
+      phaseCostMultiplierOverride: this.config.phaseCostMultiplier,
+      summarySections: this.config.summarySections,
+    });
+
+    // Persist the current save as the new snapshot baseline.
+    const hash = await hashFile(savePath);
+    await storeSnapshot(this.config.stateDir, savePath);
+    await this.store.update({
+      lastSaveHash: hash,
+      lastSaveName: worldState.saveName,
+      lastProcessedAt: new Date().toISOString(),
+      lastWorldState: worldState,
+    });
+
+    const entry: PreviewEntry = {
+      generatedAt: new Date().toISOString(),
+      source: `snapshot → ${basename(savePath)}`,
+      live: true,
+      kind: delta.isEmpty ? 'empty' : 'summary',
+      status: 'snapshot-advanced',
+      summary,
+    };
+    this.previewStore.set(entry);
+
+    return { status: 'snapshot-advanced', message: 'Snapshot baseline advanced.' };
+  }
+
+  /** Preview the current canonical save vs the persisted snapshot, without posting. */
+  async previewAgainstBaseline(): Promise<PreviewEntry> {
+    return this.previewAgainstSnapshot();
+  }
+
+  /**
+   * Compare the current canonical save against the persisted snapshot
+   * (state/snapshots/previous.sav).  Returns a first-run entry when no
+   * snapshot exists yet.
+   */
+  private async previewAgainstSnapshot(): Promise<PreviewEntry> {
+    const savePath = await findCanonicalSave(this.config);
+    if (!savePath) {
+      const entry: PreviewEntry = {
+        generatedAt: new Date().toISOString(),
+        source: 'snapshot → (no canonical save found)',
         live: false,
         kind: 'unchanged',
       };
@@ -248,23 +322,35 @@ export class Runtime {
       return entry;
     }
 
-    const computed = await computeSummary(savePath, this.store, {
+    const { previousSave } = snapshotPaths(this.config.stateDir);
+    let snapshotExists = false;
+    try {
+      await stat(previousSave);
+      snapshotExists = true;
+    } catch { /* file doesn't exist */ }
+
+    if (!snapshotExists) {
+      const entry: PreviewEntry = {
+        generatedAt: new Date().toISOString(),
+        source: `snapshot → ${basename(savePath)}`,
+        live: false,
+        kind: 'first-run',
+      };
+      this.previewStore.set(entry);
+      return entry;
+    }
+
+    const { delta, summary } = await computeSummaryBetween(previousSave, savePath, {
       phaseCostMultiplierOverride: this.config.phaseCostMultiplier,
       summarySections: this.config.summarySections,
     });
-    const source = `baseline → ${basename(savePath)}`;
-    let entry: PreviewEntry;
-    if (computed.isFirstRun) {
-      entry = { generatedAt: new Date().toISOString(), source, live: false, kind: 'first-run' };
-    } else {
-      entry = {
-        generatedAt: new Date().toISOString(),
-        source,
-        live: false,
-        kind: computed.delta?.isEmpty ? 'empty' : 'summary',
-        summary: computed.summary,
-      };
-    }
+    const entry: PreviewEntry = {
+      generatedAt: new Date().toISOString(),
+      source: `snapshot → ${basename(savePath)}`,
+      live: false,
+      kind: delta.isEmpty ? 'empty' : 'summary',
+      summary,
+    };
     this.previewStore.set(entry);
     return entry;
   }
