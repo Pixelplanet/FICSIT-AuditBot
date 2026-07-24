@@ -1,18 +1,13 @@
 # =============================================================================
-# FICSIT AuditBot — Portainer / production deployment (MAP-ENABLED)
+# FICSIT AuditBot — Portainer / production deployment (LEAN, no map)
 # =============================================================================
-# Pulls the prebuilt, map-enabled image (pixelplanet/ficsit-auditbot:map) from
-# DockerHub (no local build). This image bundles the interactive "Map" page
-# (served at /map) and the headless Discord map-image renderer.
+# Pulls the prebuilt lean image (pixelplanet/ficsit-auditbot:latest) from
+# DockerHub (no local build). This image does NOT include the interactive map
+# page or the headless Discord map-image renderer — the /map route returns 404
+# and MAP_IMAGE_ENABLED has no effect. It is significantly smaller.
 #
-# Prefer the lean image (no map, much smaller)? Use
-# compose.portainer.lean.yaml instead. Deploy only ONE of the two stacks —
-# they share the same container name and port.
-#
-# NOTE: the interactive map relies on cross-origin isolation, which browsers
-# only honor over HTTPS or via http://localhost. Behind plain http on a remote
-# host the Discord map image still renders, but the interactive page is best
-# served over HTTPS (reverse proxy) or opened via localhost.
+# Want the map + Discord map images? Use compose.portainer.yaml instead. Deploy
+# only ONE of the two stacks — they share the same container name and port.
 #
 # Storage is intentionally simple — two bind mounts under /mnt/docker_data so
 # everything lives in one predictable place per the other stacks:
@@ -31,7 +26,7 @@
 
 services:
   ficsit-auditbot:
-    image: pixelplanet/ficsit-auditbot:map
+    image: pixelplanet/ficsit-auditbot:latest
     container_name: ficsit-auditbot
     restart: unless-stopped
     ports:
@@ -52,9 +47,6 @@ services:
       SERVER_API_ALLOW_INSECURE_TLS: "${SERVER_API_ALLOW_INSECURE_TLS:-true}"
       SERVER_API_TIMEOUT_MS: "${SERVER_API_TIMEOUT_MS:-5000}"
       POST_TO_DISCORD: "${POST_TO_DISCORD:-false}"
-      # Attach a rendered map image to Discord summaries (map image only;
-      # configure the default view in the web UI). Off by default.
-      MAP_IMAGE_ENABLED: "${MAP_IMAGE_ENABLED:-false}"
       SKIP_EMPTY_SUMMARIES: "${SKIP_EMPTY_SUMMARIES:-true}"
       WATCH_DEBOUNCE_MS: "${WATCH_DEBOUNCE_MS:-5000}"
       PHASE_COST_MULTIPLIER: "${PHASE_COST_MULTIPLIER:-0}"
