@@ -46,6 +46,13 @@ export interface MapImageConfig {
   centerY?: number;
   /** Enabled map layer/filter ids passed through to the frontend. */
   layers: string[];
+  /**
+   * Opaque marker-visibility state captured from the interactive map
+   * (localStorage `smapSavedVisibility` JSON). Seeded into the headless render
+   * so the image shows exactly the markers configured on the map page. Blank =
+   * all markers.
+   */
+  visibility?: string;
   /** Output image dimensions in pixels. */
   width: number;
   height: number;
@@ -149,6 +156,7 @@ export interface SettingsPatch {
     centerX?: number | null;
     centerY?: number | null;
     layers?: string[];
+    visibility?: string | null;
     width?: number;
     height?: number;
   };
@@ -416,6 +424,10 @@ function applyPatch(current: EditableSettings, patch: SettingsPatch): EditableSe
         .filter((l): l is string => typeof l === 'string')
         .map((l) => l.trim())
         .filter(Boolean);
+    }
+    if (m.visibility !== undefined) {
+      const v = m.visibility === null ? '' : m.visibility.trim();
+      next.mapImage.visibility = v ? v : undefined;
     }
     if (m.width !== undefined) next.mapImage.width = clampNumber(Math.floor(m.width), 256, 4096);
     if (m.height !== undefined) next.mapImage.height = clampNumber(Math.floor(m.height), 256, 4096);

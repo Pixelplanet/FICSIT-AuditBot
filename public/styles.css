@@ -206,9 +206,11 @@ legend { color: var(--accent-2); font-size: 13px; padding: 0 6px; }
   grid-template-columns: 300px 1fr;
   gap: 16px;
   align-items: stretch;
+  height: calc(100vh - 220px);
+  min-height: 480px;
 }
-.map-sidebar { min-width: 0; }
-.save-list { list-style: none; margin: 0; padding: 0; max-height: 640px; overflow: auto; }
+.map-sidebar { min-width: 0; display: flex; }
+.save-list { list-style: none; margin: 0; padding: 0; height: 100%; flex: 1; overflow: auto; }
 .save-item {
   display: flex;
   justify-content: space-between;
@@ -248,9 +250,11 @@ legend { color: var(--accent-2); font-size: 13px; padding: 0 6px; }
   border-radius: 8px;
   overflow: hidden;
   background: #11141a;
-  min-height: 640px;
+  min-height: 0;
+  height: 100%;
 }
-.map-frame { width: 100%; height: 640px; border: none; display: block; }
+.map-frame { width: 100%; height: 100%; border: none; display: block; }
+.map-marker-bar { margin-top: 12px; align-items: center; }
 #mapUnavailable {
   position: absolute;
   inset: 0;

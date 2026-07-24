@@ -29,7 +29,7 @@
     return; // Nothing to do — behave like the stock map.
   }
 
-  var RENDER_SETTLE_MS = 900; // Let WebGL paint a couple of frames before capture.
+  var RENDER_SETTLE_MS = 1800; // Let tiles + the WebGL layer paint before capture.
   var LOAD_TIMEOUT_MS = 120000;
 
   function fail(message) {
@@ -60,21 +60,46 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  // Best-effort application of the requested view once the map exists.
+  // Headless: strip every bit of UI chrome and make the map fill the frame, so
+  // the screenshot is purely the map + markers with nothing cut off.
+  function injectHeadlessStyles() {
+    if (document.getElementById('auditbot-headless-style')) return;
+    var css =
+      '#topBar,#sidebar,#categoryDetailColumn,#categoryNavPanel,' +
+      '.leaflet-control-container,.leaflet-control,#busyOverlay,#searchSuggestions,' +
+      '#loadProgressBar,#statusMenu,.smapFooter,footer{display:none !important;}' +
+      'html,body{margin:0 !important;padding:0 !important;background:#0d0f13 !important;overflow:hidden !important;}' +
+      '#map{position:fixed !important;top:0 !important;left:0 !important;right:0 !important;' +
+      'bottom:0 !important;width:100vw !important;height:100vh !important;margin:0 !important;}';
+    var style = document.createElement('style');
+    style.id = 'auditbot-headless-style';
+    style.textContent = css;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  // Frame the whole factory once the map exists. An explicit centerX/centerY
+  // overrides the auto-fit; otherwise we fit the map's content bounds so the
+  // full overview is captured with nothing cropped.
   function applyView() {
     try {
       if (!window.MapApp || !window.MapApp.map) return;
       var map = window.MapApp.map;
+      if (typeof map.invalidateSize === 'function') map.invalidateSize(false);
       var zoom = params.get('zoom');
       var cx = params.get('centerX');
       var cy = params.get('centerY');
       if (cx !== null && cy !== null && typeof map.setView === 'function') {
-        // The map's CRS maps game units to lat/lng directly in most builds;
-        // if not, this throws and we fall back to a plain zoom.
         map.setView([Number(cy), Number(cx)], zoom !== null ? Number(zoom) : map.getZoom());
-      } else if (zoom !== null && typeof map.setZoom === 'function') {
-        map.setZoom(Number(zoom));
+        return;
       }
+      if (typeof map.getMaxBounds === 'function' && typeof map.fitBounds === 'function') {
+        var bounds = map.getMaxBounds();
+        if (bounds && (!bounds.isValid || bounds.isValid())) {
+          map.fitBounds(bounds, { animate: false, padding: [0, 0] });
+          return;
+        }
+      }
+      if (zoom !== null && typeof map.setZoom === 'function') map.setZoom(Number(zoom));
     } catch (err) {
       // View is best-effort; keep whatever the map defaulted to.
       // eslint-disable-next-line no-console
@@ -120,13 +145,18 @@
   }
 
   function start() {
+    if (headless) {
+      // Hide chrome up front so there's no flash of UI before the capture.
+      injectHeadlessStyles();
+    }
     watchLoad(
       function onLoaded() {
         applyView();
         if (headless) {
-          // Give the WebGL layer a moment to paint the applied view.
+          // Re-fit after a tick (tiles/labels settle) then signal readiness.
           requestAnimationFrame(function () {
             requestAnimationFrame(function () {
+              applyView();
               setTimeout(function () {
                 window.__MAP_RENDER_READY__ = true;
               }, RENDER_SETTLE_MS);

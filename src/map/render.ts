@@ -64,6 +64,7 @@ interface HeadlessBrowser {
 }
 interface HeadlessContext {
   newPage(): Promise<HeadlessPage>;
+  addInitScript(script: (arg: string) => void, arg: string): Promise<void>;
 }
 interface HeadlessLocator {
   first(): HeadlessLocator;
@@ -116,6 +117,18 @@ export async function renderMapImage(options: RenderMapOptions): Promise<RenderM
       viewport: { width, height },
       deviceScaleFactor: 1,
     });
+    // Seed the map's saved marker-visibility so the render matches the view the
+    // admin configured on the interactive page (localStorage is origin-scoped
+    // and read by the map's filters.js at build time).
+    if (options.mapImage.visibility) {
+      await context.addInitScript((data: string) => {
+        try {
+          localStorage.setItem('smapSavedVisibility', data);
+        } catch {
+          /* storage blocked: fall back to all markers */
+        }
+      }, options.mapImage.visibility);
+    }
     const page = await context.newPage();
 
     const errors: string[] = [];

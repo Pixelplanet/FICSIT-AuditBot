@@ -83,7 +83,7 @@ document.querySelectorAll('.tab').forEach((tab) => {
       void loadLogs();
     }
     if (tab.dataset.tab === 'config') void loadConfig();
-    if (tab.dataset.tab === 'map') { void checkMapAvailable(); void loadMapSaves(); }
+    if (tab.dataset.tab === 'map') { void checkMapAvailable(); void loadMapSaves(); void refreshMarkerState(); }
   });
 });
 
@@ -120,7 +120,6 @@ async function loadConfig() {
     f.mapImageZoom.value = cfg.mapImage?.zoom ?? 4;
     f.mapImageWidth.value = cfg.mapImage?.width ?? 1280;
     f.mapImageHeight.value = cfg.mapImage?.height ?? 1280;
-    f.mapImageLayers.value = (cfg.mapImage?.layers || []).join(', ');
     setState('webhookState', cfg.discord.webhookUrlSet);
     setState('botState', cfg.discord.botTokenSet);
     setState('serverApiTokenState', !!cfg.serverApi?.tokenSet);
@@ -212,7 +211,6 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
       zoom: Number(f.mapImageZoom.value),
       width: Number(f.mapImageWidth.value),
       height: Number(f.mapImageHeight.value),
-      layers: f.mapImageLayers.value.split(',').map((s) => s.trim()).filter(Boolean),
     },
     serverApi: {
       url: f.serverApiUrl.value.trim(),
@@ -632,6 +630,52 @@ document.getElementById('btnMapPost')?.addEventListener('click', async () => {
     toast('Post failed: ' + err.message, 'err');
   } finally {
     btn.disabled = false;
+  }
+});
+
+// Reflect whether a custom marker selection is saved for rendering.
+async function refreshMarkerState() {
+  const el = document.getElementById('markerState');
+  if (!el) return;
+  try {
+    const cfg = await getJSON('/api/config');
+    el.textContent = cfg.mapImage?.visibility ? '\u2713 custom selection saved' : 'all markers (default)';
+  } catch {
+    el.textContent = '';
+  }
+}
+
+// Capture the interactive map's current marker visibility (persisted by the
+// map in its localStorage) and store it as the render default.
+document.getElementById('btnSaveMarkers')?.addEventListener('click', async () => {
+  const frame = document.getElementById('mapFrame');
+  let visibility = null;
+  try {
+    visibility = frame.contentWindow.localStorage.getItem('smapSavedVisibility');
+  } catch {
+    toast('Open the map and toggle some markers first.', 'err');
+    return;
+  }
+  if (!visibility) {
+    toast('No marker changes yet \u2014 toggle categories on the map, then save.', 'err');
+    return;
+  }
+  try {
+    await sendJSON('/api/config', 'PUT', { mapImage: { visibility } });
+    toast('Marker selection saved for rendering.', 'ok');
+    void refreshMarkerState();
+  } catch (err) {
+    toast('Save failed: ' + err.message, 'err');
+  }
+});
+
+document.getElementById('btnResetMarkers')?.addEventListener('click', async () => {
+  try {
+    await sendJSON('/api/config', 'PUT', { mapImage: { visibility: null } });
+    toast('Reset to all markers.', 'ok');
+    void refreshMarkerState();
+  } catch (err) {
+    toast('Reset failed: ' + err.message, 'err');
   }
 });
 

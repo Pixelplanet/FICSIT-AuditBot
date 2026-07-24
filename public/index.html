@@ -104,6 +104,12 @@
               <iframe id="mapFrame" class="map-frame" title="Factory map"></iframe>
             </div>
           </div>
+          <div class="row map-marker-bar">
+            <span class="muted">Rendered-image markers:</span>
+            <button id="btnSaveMarkers" class="btn">Save current markers for rendering</button>
+            <button id="btnResetMarkers" class="btn btn-ghost">Reset to all markers</button>
+            <span id="markerState" class="muted"></span>
+          </div>
         </div>
 
         <div class="card">
@@ -319,10 +325,10 @@
                 <input type="number" name="mapImageHeight" min="256" max="4096" step="16" />
               </label>
             </div>
-            <label class="field">
-              <span>Enabled layers <em class="muted">(comma-separated ids, optional)</em></span>
-              <input type="text" name="mapImageLayers" placeholder="e.g. belts,power,resources" />
-            </label>
+            <p class="muted">
+              Which markers appear is set on the <strong>Map</strong> tab: toggle the categories you
+              want, then click “Save current markers for rendering”. Blank = all markers.
+            </p>
           </fieldset>
 
           <fieldset>
