@@ -83,7 +83,7 @@ document.querySelectorAll('.tab').forEach((tab) => {
       void loadLogs();
     }
     if (tab.dataset.tab === 'config') void loadConfig();
-    if (tab.dataset.tab === 'map') void loadMapSaves();
+    if (tab.dataset.tab === 'map') { void checkMapAvailable(); void loadMapSaves(); }
   });
 });
 
@@ -515,7 +515,32 @@ function escapeHtml(s) {
 
 // --- Map tab ---
 
+var mapAvailable = false;
+
+// Detect whether the interactive map bundle is served at /map/ (only present in
+// the :map image). Toggle the iframe vs. an explanatory notice accordingly.
+async function checkMapAvailable() {
+  const frame = document.getElementById('mapFrame');
+  const notice = document.getElementById('mapUnavailable');
+  try {
+    const res = await fetch('/map/', { method: 'HEAD' });
+    mapAvailable = res.ok;
+  } catch {
+    mapAvailable = false;
+  }
+  frame.classList.toggle('hidden', !mapAvailable);
+  notice.classList.toggle('hidden', mapAvailable);
+  if (mapAvailable && !frame.getAttribute('src')) {
+    frame.src = '/map/';
+  }
+  return mapAvailable;
+}
+
 function openInMap(path) {
+  if (!mapAvailable) {
+    toast('Interactive map not installed (use the :map image).', 'err');
+    return;
+  }
   const frame = document.getElementById('mapFrame');
   frame.src = '/map/?apiSave=' + encodeURIComponent(path);
 }
@@ -523,31 +548,46 @@ function openInMap(path) {
 function mapSaveItem(entry) {
   const li = document.createElement('li');
   li.className = 'save-item';
-  const meta = entry.isCanonical ? ' \u00b7 canonical' : '';
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'link-btn';
   btn.textContent = entry.name;
+  btn.title = entry.name;
   btn.addEventListener('click', () => openInMap(entry.path));
   const info = document.createElement('span');
   info.className = 'muted';
-  info.textContent = fmtRelativeTime(entry.mtimeMs) + meta;
+  info.textContent = fmtRelativeTime(entry.mtimeMs) + (entry.isCanonical ? ' \u00b7 canonical' : '');
   li.appendChild(btn);
   li.appendChild(info);
   return li;
 }
 
+function mapListSeparator(label) {
+  const li = document.createElement('li');
+  li.className = 'save-sep';
+  li.textContent = label;
+  return li;
+}
+
+// One merged list: current saves first (newest first), then backups (newest
+// first) under a separator.
 async function loadMapSaves() {
-  const liveList = document.getElementById('mapLiveList');
-  const backupList = document.getElementById('mapBackupList');
+  const list = document.getElementById('mapSaveList');
   try {
     const data = await getJSON('/api/map/saves');
-    liveList.innerHTML = '';
-    backupList.innerHTML = '';
-    if (!data.live.length) liveList.innerHTML = '<li class="muted">No saves found.</li>';
-    if (!data.backups.length) backupList.innerHTML = '<li class="muted">No backups yet.</li>';
-    data.live.forEach((e) => liveList.appendChild(mapSaveItem(e)));
-    data.backups.forEach((e) => backupList.appendChild(mapSaveItem(e)));
+    const byNewest = (a, b) => b.mtimeMs - a.mtimeMs;
+    const live = (data.live || []).slice().sort(byNewest);
+    const backups = (data.backups || []).slice().sort(byNewest);
+    list.innerHTML = '';
+    if (!live.length && !backups.length) {
+      list.innerHTML = '<li class="muted">No saves found.</li>';
+      return;
+    }
+    live.forEach((e) => list.appendChild(mapSaveItem(e)));
+    if (backups.length) {
+      list.appendChild(mapListSeparator('Backups'));
+      backups.forEach((e) => list.appendChild(mapSaveItem(e)));
+    }
   } catch (err) {
     toast('Failed to load saves: ' + err.message, 'err');
   }
