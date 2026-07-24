@@ -8,6 +8,9 @@ dist
 /data
 tmp-test
 /Saves
+# The game-data archive is fetched (pinned + verified) during the build, never
+# copied from context.
+map-integration/game_data.zip
 docs
 !docs/bundled-en-US.json
 .env

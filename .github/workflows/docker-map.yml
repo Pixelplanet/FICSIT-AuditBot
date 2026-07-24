@@ -1,0 +1,58 @@
+# =============================================================================
+# CI (map) — Build the map-enabled, ready-to-use image and push it to DockerHub
+# =============================================================================
+# Builds Dockerfile.map: the AuditBot app PLUS the embedded satisfactorymap
+# bundle and a Chromium-capable runtime for the Discord map-image renderer. The
+# game-derived data is fetched (pinned URL + SHA-256) during the build, so the
+# resulting image is self-contained and ready to use.
+#
+# This runs alongside ci.yml (which publishes the lean image). It is heavier
+# (Rust + WASM + map-tile build) and is intentionally a separate job so a map
+# build failure never blocks the lean image.
+#
+# Required repository secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+# =============================================================================
+
+name: CI (map image)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: pixelplanet/ficsit-auditbot
+
+jobs:
+  build-and-push-map:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract short SHA
+        id: sha
+        run: echo "short=$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push (map)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.map
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:map
+            ${{ env.IMAGE_NAME }}:map-sha-${{ steps.sha.outputs.short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

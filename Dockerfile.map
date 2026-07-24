@@ -6,18 +6,15 @@
 # builds the satisfactorymap static bundle and ships a Chromium-capable runtime
 # so the "Map" page and the Discord map-image renderer work.
 #
-# PREREQUISITE (one-time, on a machine with the game installed):
-#   The map needs game-derived data (item/building JSONs, icons, the map image)
-#   that is NOT in this repo (Coffee Stain assets, extracted via FModel). Produce
-#   the archive once with the upstream tooling and drop it next to this file:
+# Game-derived data (item/building JSONs, icons, the map image) is NOT in this
+# repo (Coffee Stain assets, too large to commit -- the archive is 127 MB, over
+# GitHub's 100 MB file limit). It is fetched during the build from the upstream
+# release, pinned by URL + SHA-256 (the same source the upstream build uses), so
+# the finished image contains everything and the app is ready to use.
 #
-#     # in third_party/satisfactorymap, after extracting game data per CONTRIBUTING.md:
-#     py game_data/package_game_data.py pack        # writes game_data.zip
-#     copy game_data.zip <repo>/map-integration/game_data.zip
+#   docker build -f Dockerfile.map -t ficsit-auditbot:map .
 #
-#   Then build:  docker build -f Dockerfile.map -t ficsit-auditbot:map .
-#
-# NOTE: this build requires the git submodule to be checked out:
+# Requires the git submodule to be checked out:
 #     git submodule update --init --recursive
 # =============================================================================
 
@@ -34,21 +31,35 @@ RUN npm run build
 # ---- Map build (Rust -> WASM + static site) ----
 FROM rust:1-bookworm AS map-build
 WORKDIR /build
+
+# Pinned game-data archive + wasm-pack (same versions the upstream build uses).
+ARG GAME_DATA_URL="https://github.com/valentinps/satisfactorymap/releases/download/game-data-v1/game_data.zip"
+ARG GAME_DATA_SHA256="75b2087fae82ff00a1d36fccebd0970550e5ccebfad6d2b159c2838718cd13d6"
+ARG WASM_PACK_VERSION="v0.15.0"
+
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 python3-pip python3-venv \
+ && apt-get install -y --no-install-recommends python3 python3-pip curl ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
- && cargo install wasm-pack
-ENV PATH="/root/.cargo/bin:${PATH}"
+ && pip3 install --break-system-packages "Pillow>=10,<12"
 
-# The vendored, AGPL-licensed map source (submodule).
+# Pinned prebuilt wasm-pack binary (faster + reproducible vs. cargo install).
+RUN curl --proto '=https' --tlsv1.2 -sSfL -o /tmp/wasm-pack.tar.gz \
+      "https://github.com/rustwasm/wasm-pack/releases/download/${WASM_PACK_VERSION}/wasm-pack-${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+ && tar -xzf /tmp/wasm-pack.tar.gz --strip-components=1 -C /usr/local/bin \
+      "wasm-pack-${WASM_PACK_VERSION}-x86_64-unknown-linux-musl/wasm-pack" \
+ && rm -f /tmp/wasm-pack.tar.gz \
+ && rustup target add wasm32-unknown-unknown
+
+# The vendored, AGPL-licensed map source (submodule; checkout with
+# `git submodule update --init --recursive`).
 COPY third_party/satisfactorymap ./satisfactorymap
-# Python build deps (Pillow for the map-tile pyramid, etc.).
-RUN pip3 install --break-system-packages -r satisfactorymap/requirements.txt
 
-# Game-derived data archive (generated JSONs + map image + icons), produced by
-# package_game_data.py on a machine with the game installed. Not committed.
-COPY map-integration/game_data.zip ./game_data.zip
-RUN cd satisfactorymap && python3 game_data/package_game_data.py unpack ../game_data.zip
+# Fetch + verify + unpack the game-derived data (icons, map image, JSONs).
+RUN cd satisfactorymap \
+ && curl --proto '=https' --tlsv1.2 -sSfL -o game_data.zip "${GAME_DATA_URL}" \
+ && echo "${GAME_DATA_SHA256}  game_data.zip" | sha256sum -c - \
+ && python3 game_data/package_game_data.py unpack game_data.zip \
+ && rm -f game_data.zip
 
 # Layer the AuditBot integration overlay onto the frontend before assembling.
 COPY map-integration/overlay/auditbot.js ./satisfactorymap/map/static/map/auditbot.js
@@ -62,7 +73,9 @@ RUN cd satisfactorymap && python3 tools/build_site.py
 # Keep this tag in sync with the "playwright" version pinned in package.json.
 FROM mcr.microsoft.com/playwright:v1.48.0-jammy AS runtime
 WORKDIR /app
-ENV NODE_ENV=production
+# Browsers are preinstalled in the base image; don't re-download them on npm ci.
+ENV NODE_ENV=production \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Production dependencies (Playwright's browsers are already in the base image).
 COPY package*.json ./
