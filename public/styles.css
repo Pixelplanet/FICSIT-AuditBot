@@ -20,6 +20,7 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 .topbar {
@@ -201,13 +202,23 @@ legend { color: var(--accent-2); font-size: 13px; padding: 0 6px; }
 .toast.err { border-color: var(--danger); }
 
 /* Map tab */
+/* Break the map tab out of main's max-width so the map + its controls fill the
+   full viewport width. */
+#tab-map.active {
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 0 16px;
+}
 .map-layout {
   display: grid;
   grid-template-columns: 300px 1fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: 16px;
   align-items: stretch;
-  height: calc(100vh - 220px);
-  min-height: 480px;
+  /* Fill the viewport height; on short screens min-height forces the box to
+     grow downwards (the page scrolls) rather than cramming the controls. */
+  height: calc(100vh - 170px);
+  min-height: 640px;
 }
 .map-sidebar { min-width: 0; display: flex; }
 .save-list { list-style: none; margin: 0; padding: 0; height: 100%; flex: 1; overflow: auto; }
