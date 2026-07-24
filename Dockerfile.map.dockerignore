@@ -1,0 +1,22 @@
+# Build context filter for Dockerfile.map (honored by BuildKit for this
+# Dockerfile only). Unlike the default .dockerignore, this KEEPS third_party/
+# (the satisfactorymap submodule), map-integration/ (overlay + game_data.zip)
+# so the map build stage can access them.
+node_modules
+dist
+/state
+/data
+tmp-test
+/Saves
+docs
+!docs/bundled-en-US.json
+.env
+.env.local
+.git
+*.log
+npm-debug.log*
+.vscode
+.DS_Store
+Thumbs.db
+plan-*.prompt.md
+README.md

@@ -83,6 +83,7 @@ document.querySelectorAll('.tab').forEach((tab) => {
       void loadLogs();
     }
     if (tab.dataset.tab === 'config') void loadConfig();
+    if (tab.dataset.tab === 'map') void loadMapSaves();
   });
 });
 
@@ -114,6 +115,12 @@ async function loadConfig() {
     f.serverApiTimeoutMs.value = cfg.serverApi?.timeoutMs ?? 5000;
     f.channelId.value = cfg.discord.channelId || '';
     f.webPort.value = cfg.webPort ?? 8080;
+    f.mapImageEnabled.checked = !!cfg.mapImage?.enabled;
+    f.mapImageSource.value = cfg.mapImage?.source || 'canonical';
+    f.mapImageZoom.value = cfg.mapImage?.zoom ?? 4;
+    f.mapImageWidth.value = cfg.mapImage?.width ?? 1280;
+    f.mapImageHeight.value = cfg.mapImage?.height ?? 1280;
+    f.mapImageLayers.value = (cfg.mapImage?.layers || []).join(', ');
     setState('webhookState', cfg.discord.webhookUrlSet);
     setState('botState', cfg.discord.botTokenSet);
     setState('serverApiTokenState', !!cfg.serverApi?.tokenSet);
@@ -199,6 +206,14 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
       ada: f.summaryAda.checked,
     },
     webPort: Number(f.webPort.value),
+    mapImage: {
+      enabled: f.mapImageEnabled.checked,
+      source: f.mapImageSource.value,
+      zoom: Number(f.mapImageZoom.value),
+      width: Number(f.mapImageWidth.value),
+      height: Number(f.mapImageHeight.value),
+      layers: f.mapImageLayers.value.split(',').map((s) => s.trim()).filter(Boolean),
+    },
     serverApi: {
       url: f.serverApiUrl.value.trim(),
       allowInsecureTls: f.serverApiAllowInsecureTls.checked,
@@ -497,6 +512,88 @@ function escapeHtml(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
+
+// --- Map tab ---
+
+function openInMap(path) {
+  const frame = document.getElementById('mapFrame');
+  frame.src = '/map/?apiSave=' + encodeURIComponent(path);
+}
+
+function mapSaveItem(entry) {
+  const li = document.createElement('li');
+  li.className = 'save-item';
+  const meta = entry.isCanonical ? ' \u00b7 canonical' : '';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'link-btn';
+  btn.textContent = entry.name;
+  btn.addEventListener('click', () => openInMap(entry.path));
+  const info = document.createElement('span');
+  info.className = 'muted';
+  info.textContent = fmtRelativeTime(entry.mtimeMs) + meta;
+  li.appendChild(btn);
+  li.appendChild(info);
+  return li;
+}
+
+async function loadMapSaves() {
+  const liveList = document.getElementById('mapLiveList');
+  const backupList = document.getElementById('mapBackupList');
+  try {
+    const data = await getJSON('/api/map/saves');
+    liveList.innerHTML = '';
+    backupList.innerHTML = '';
+    if (!data.live.length) liveList.innerHTML = '<li class="muted">No saves found.</li>';
+    if (!data.backups.length) backupList.innerHTML = '<li class="muted">No backups yet.</li>';
+    data.live.forEach((e) => liveList.appendChild(mapSaveItem(e)));
+    data.backups.forEach((e) => backupList.appendChild(mapSaveItem(e)));
+  } catch (err) {
+    toast('Failed to load saves: ' + err.message, 'err');
+  }
+}
+
+document.getElementById('btnMapRender')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btnMapRender');
+  const source = document.getElementById('mapRenderSource').value || undefined;
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/map/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    const blob = await res.blob();
+    const img = document.getElementById('mapImagePreview');
+    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    const url = URL.createObjectURL(blob);
+    img.dataset.url = url;
+    img.src = url;
+    img.classList.remove('hidden');
+    document.getElementById('mapImageEmpty').classList.add('hidden');
+    toast('Map image rendered', 'ok');
+  } catch (err) {
+    toast('Render failed: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btnMapPost')?.addEventListener('click', async () => {
+  if (!confirm('Render a map image and post the current preview summary to Discord?')) return;
+  const btn = document.getElementById('btnMapPost');
+  const source = document.getElementById('mapRenderSource').value || undefined;
+  btn.disabled = true;
+  try {
+    const result = await sendJSON('/api/map/test-post', 'POST', { source });
+    toast(result.message || (result.delivered ? 'Posted' : 'Not delivered'), result.delivered ? 'ok' : 'err');
+  } catch (err) {
+    toast('Post failed: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 (async function init() {
   await loadStatus();

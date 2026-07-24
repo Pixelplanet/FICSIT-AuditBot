@@ -3,6 +3,11 @@ dist
 /state
 tmp-test
 /Saves
+# The satisfactorymap submodule and map integration overlay are only used by
+# Dockerfile.map (which has its own Dockerfile.map.dockerignore); keep them out
+# of the default image's build context.
+third_party
+map-integration
 # Keep repo docs out of the build context by default, but include one
 # bundled baseline docs snapshot for first-run Docker experience.
 docs

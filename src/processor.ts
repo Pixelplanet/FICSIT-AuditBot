@@ -8,6 +8,7 @@
  */
 import type { AppConfig } from './config.js';
 import type { DiscordDispatcher } from './discord/index.js';
+import type { DiscordImageAttachment } from './discord/embed.js';
 import type { StateStore } from './state/store.js';
 import type { WorldState } from './model.js';
 import { parseSaveFile } from './save/parser.js';
@@ -85,6 +86,10 @@ export async function processSave(
   config: AppConfig,
   store: StateStore,
   dispatcher: DiscordDispatcher | undefined,
+  options: {
+    /** Optional provider of a map image to attach when the summary is posted. */
+    imageProvider?: () => Promise<DiscordImageAttachment | undefined>;
+  } = {},
 ): Promise<ProcessResult> {
   const computed = await computeSummary(savePath, store, {
     phaseCostMultiplierOverride: config.phaseCostMultiplier,
@@ -121,7 +126,15 @@ export async function processSave(
   if (config.postToDiscord && config.skipEmptySummaries && isEmpty) {
     status = 'skipped-empty';
   } else if (shouldPost && dispatcher) {
-    const delivered = await dispatcher.dispatch(safeSummary);
+    let image: DiscordImageAttachment | undefined;
+    if (options.imageProvider) {
+      try {
+        image = await options.imageProvider();
+      } catch (err) {
+        console.error('[map] image generation failed:', err);
+      }
+    }
+    const delivered = await dispatcher.dispatch(safeSummary, image);
     status = delivered ? 'posted' : 'console-only';
   }
 

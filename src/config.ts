@@ -29,6 +29,28 @@ export interface ServerApiConfig {
   timeoutMs: number;
 }
 
+/**
+ * Default map-image render settings plus Discord attachment behavior. The image
+ * is produced by headlessly rendering the embedded map page for a chosen save
+ * and screenshotting the WebGL canvas (see {@link ./map/render}).
+ */
+export interface MapImageConfig {
+  /** Render a map image and attach it to Discord summary posts. */
+  enabled: boolean;
+  /** Which save to render for the automated image. */
+  source: 'canonical' | 'latest-backup';
+  /** Leaflet zoom level for the default view (higher = closer). */
+  zoom: number;
+  /** Optional world-space center (game units); both must be set to take effect. */
+  centerX?: number;
+  centerY?: number;
+  /** Enabled map layer/filter ids passed through to the frontend. */
+  layers: string[];
+  /** Output image dimensions in pixels. */
+  width: number;
+  height: number;
+}
+
 /** Settings that can be edited at runtime via the web UI. */
 export interface EditableSettings {
   /** Absolute path to the folder containing save files. */
@@ -64,6 +86,8 @@ export interface EditableSettings {
   webPort: number;
   /** Toggle which summary sections are rendered for posting/preview. */
   summarySections: SummarySectionToggles;
+  /** Default map-image render + Discord attachment settings. */
+  mapImage: MapImageConfig;
   discord: DiscordConfig;
   serverApi: ServerApiConfig;
 }
@@ -89,6 +113,7 @@ export interface PublicConfig {
   webEnabled: boolean;
   webPort: number;
   summarySections: SummarySectionToggles;
+  mapImage: MapImageConfig;
   serverApi: {
     url?: string;
     tokenSet: boolean;
@@ -117,6 +142,16 @@ export interface SettingsPatch {
   webEnabled?: boolean;
   webPort?: number;
   summarySections?: Partial<SummarySectionToggles>;
+  mapImage?: {
+    enabled?: boolean;
+    source?: 'canonical' | 'latest-backup';
+    zoom?: number;
+    centerX?: number | null;
+    centerY?: number | null;
+    layers?: string[];
+    width?: number;
+    height?: number;
+  };
   serverApi?: {
     url?: string;
     token?: string | null;
@@ -146,6 +181,21 @@ function optional(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
 }
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+/** Baseline map-image settings; disabled until an admin opts in via the UI. */
+const DEFAULT_MAP_IMAGE: MapImageConfig = {
+  enabled: false,
+  source: 'canonical',
+  zoom: 4,
+  layers: [],
+  width: 1280,
+  height: 1280,
+};
 
 /**
  * Resolve the optional shared data root (`DATA_DIR`). When set, the state and
@@ -195,6 +245,7 @@ function envDefaults(): EditableSettings {
     webEnabled: bool(process.env.WEB_ENABLED, true),
     webPort: int(process.env.WEB_PORT, 8080),
     summarySections: withDefaultSummarySections(),
+    mapImage: { ...DEFAULT_MAP_IMAGE, enabled: bool(process.env.MAP_IMAGE_ENABLED, false) },
     serverApi: {
       url: optional(process.env.SERVER_API_URL),
       token: optional(process.env.SERVER_API_TOKEN),
@@ -255,6 +306,7 @@ export class ConfigManager {
       webEnabled: s.webEnabled,
       webPort: s.webPort,
       summarySections: s.summarySections,
+      mapImage: s.mapImage,
       serverApi: {
         url: s.serverApi.url,
         tokenSet: Boolean(s.serverApi.token),
@@ -303,6 +355,7 @@ function mergeSettings(base: EditableSettings, saved: Partial<EditableSettings>)
     ...saved,
     savesDir: saved.savesDir ? resolve(saved.savesDir) : base.savesDir,
     summarySections: withDefaultSummarySections(saved.summarySections ?? base.summarySections),
+    mapImage: { ...DEFAULT_MAP_IMAGE, ...base.mapImage, ...(saved.mapImage ?? {}) },
     serverApi: { ...base.serverApi, ...(saved.serverApi ?? {}) },
     discord: { ...base.discord, ...(saved.discord ?? {}) },
   };
@@ -311,6 +364,7 @@ function mergeSettings(base: EditableSettings, saved: Partial<EditableSettings>)
 function applyPatch(current: EditableSettings, patch: SettingsPatch): EditableSettings {
   const next: EditableSettings = {
     ...current,
+    mapImage: { ...current.mapImage },
     discord: { ...current.discord },
   };
 
@@ -348,6 +402,23 @@ function applyPatch(current: EditableSettings, patch: SettingsPatch): EditableSe
     if (patch.serverApi.timeoutMs !== undefined) {
       next.serverApi.timeoutMs = Math.max(100, Math.floor(patch.serverApi.timeoutMs));
     }
+  }
+
+  if (patch.mapImage) {
+    const m = patch.mapImage;
+    if (m.enabled !== undefined) next.mapImage.enabled = m.enabled;
+    if (m.source !== undefined) next.mapImage.source = m.source;
+    if (m.zoom !== undefined) next.mapImage.zoom = clampNumber(m.zoom, -10, 30);
+    if (m.centerX !== undefined) next.mapImage.centerX = m.centerX === null ? undefined : m.centerX;
+    if (m.centerY !== undefined) next.mapImage.centerY = m.centerY === null ? undefined : m.centerY;
+    if (m.layers !== undefined) {
+      next.mapImage.layers = m.layers
+        .filter((l): l is string => typeof l === 'string')
+        .map((l) => l.trim())
+        .filter(Boolean);
+    }
+    if (m.width !== undefined) next.mapImage.width = clampNumber(Math.floor(m.width), 256, 4096);
+    if (m.height !== undefined) next.mapImage.height = clampNumber(Math.floor(m.height), 256, 4096);
   }
 
   if (patch.discord) {
@@ -412,6 +483,9 @@ function diffKeys(before: EditableSettings, after: EditableSettings): Set<string
     before.discord.channelId !== after.discord.channelId
   ) {
     changed.add('discord');
+  }
+  if (JSON.stringify(before.mapImage) !== JSON.stringify(after.mapImage)) {
+    changed.add('mapImage');
   }
   return changed;
 }

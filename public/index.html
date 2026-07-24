@@ -18,6 +18,7 @@
 
     <nav class="tabs">
       <button class="tab active" data-tab="preview">Preview</button>
+      <button class="tab" data-tab="map">Map</button>
       <button class="tab" data-tab="config">Configuration</button>
       <button class="tab" data-tab="status">Status</button>
     </nav>
@@ -81,6 +82,50 @@
             <pre id="rawText" class="raw hidden"></pre>
             <pre id="rawJson" class="raw hidden"></pre>
           </div>
+        </div>
+      </section>
+
+      <!-- MAP TAB -->
+      <section id="tab-map" class="tab-panel">
+        <div class="card">
+          <div class="preview-head">
+            <h2>Factory map</h2>
+            <div class="muted">Pick a current save or a backup to view it interactively.</div>
+          </div>
+          <div class="map-picker">
+            <div class="map-list-col">
+              <h3>Current saves</h3>
+              <ul id="mapLiveList" class="save-list"><li class="muted">Loading…</li></ul>
+            </div>
+            <div class="map-list-col">
+              <h3>Backups</h3>
+              <ul id="mapBackupList" class="save-list"><li class="muted">Loading…</li></ul>
+            </div>
+          </div>
+          <div class="map-frame-wrap">
+            <iframe id="mapFrame" class="map-frame" title="Factory map" src="/map/"></iframe>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="preview-head">
+            <h2>Map image (Discord)</h2>
+            <div class="muted">Uses the default settings from the Configuration tab.</div>
+          </div>
+          <div class="row">
+            <label class="field">
+              <span>Render source</span>
+              <select id="mapRenderSource">
+                <option value="">Use configured default</option>
+                <option value="canonical">Tracked canonical save</option>
+                <option value="latest-backup">Latest backup</option>
+              </select>
+            </label>
+            <button id="btnMapRender" class="btn btn-primary">Render preview</button>
+            <button id="btnMapPost" class="btn btn-danger">Render &amp; post to Discord</button>
+          </div>
+          <div id="mapImageEmpty" class="empty">No map image rendered yet.</div>
+          <img id="mapImagePreview" class="map-image-preview hidden" alt="Rendered map preview" />
         </div>
       </section>
 
@@ -241,6 +286,43 @@
             <label class="field">
               <span>Channel ID</span>
               <input type="text" name="channelId" placeholder="Numeric channel id" />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Map Image (Discord)</legend>
+            <p class="muted">
+              Generate a rendered map image (headless browser) and attach it to Discord summaries.
+              Requires the map bundle and a Chromium browser to be available.
+            </p>
+            <label class="check">
+              <input type="checkbox" name="mapImageEnabled" />
+              <span>Attach a map image to Discord posts</span>
+            </label>
+            <label class="field">
+              <span>Source save</span>
+              <select name="mapImageSource">
+                <option value="canonical">Tracked canonical save</option>
+                <option value="latest-backup">Latest backup</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Default zoom</span>
+              <input type="number" name="mapImageZoom" step="1" />
+            </label>
+            <div class="row">
+              <label class="field">
+                <span>Image width (px)</span>
+                <input type="number" name="mapImageWidth" min="256" max="4096" step="16" />
+              </label>
+              <label class="field">
+                <span>Image height (px)</span>
+                <input type="number" name="mapImageHeight" min="256" max="4096" step="16" />
+              </label>
+            </div>
+            <label class="field">
+              <span>Enabled layers <em class="muted">(comma-separated ids, optional)</em></span>
+              <input type="text" name="mapImageLayers" placeholder="e.g. belts,power,resources" />
             </label>
           </fieldset>
 

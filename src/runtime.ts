@@ -10,8 +10,11 @@ import {
   hasDiscordDelivery,
   type AppConfig,
   type ConfigManager,
+  type MapImageConfig,
 } from './config.js';
 import { DiscordDispatcher } from './discord/index.js';
+import type { DiscordImageAttachment } from './discord/embed.js';
+import { renderMapImage, type RenderMapResult } from './map/render.js';
 import { StateStore } from './state/store.js';
 import { PreviewStore, type PreviewEntry } from './preview/store.js';
 import {
@@ -63,6 +66,15 @@ export interface RuntimeStatus {
     totalObjects?: number;
   };
   lastResult?: { status: string; message: string; at: string };
+}
+
+/** A save (live or backup) surfaced to the map page picker. */
+export interface MapSaveEntry {
+  name: string;
+  path: string;
+  mtimeMs: number;
+  sizeBytes: number;
+  isCanonical: boolean;
 }
 
 export class Runtime {
@@ -193,7 +205,9 @@ export class Runtime {
       return;
     }
 
-    const result = await processSave(savePath, this.config, this.store, this.dispatcher);
+    const result = await processSave(savePath, this.config, this.store, this.dispatcher, {
+      imageProvider: this.config.mapImage.enabled ? () => this.mapImageAttachment() : undefined,
+    });
     this.lastResult = {
       status: result.status,
       message: result.message,
@@ -389,13 +403,13 @@ export class Runtime {
    * Send a summary to Discord on demand (for testing delivery). Builds a
    * temporary dispatcher if live posting is disabled.
    */
-  async testPost(summary: SummaryResult): Promise<{ delivered: boolean; message: string }> {
+  async testPost(summary: SummaryResult, image?: DiscordImageAttachment): Promise<{ delivered: boolean; message: string }> {
     if (!hasDiscordDelivery(this.config)) {
       return { delivered: false, message: 'No Discord webhook or bot is configured.' };
     }
     const dispatcher = this.dispatcher ?? new DiscordDispatcher(this.config);
     try {
-      const delivered = await dispatcher.dispatch(summary);
+      const delivered = await dispatcher.dispatch(summary, image);
       return {
         delivered,
         message: delivered ? 'Test summary sent to Discord.' : 'Delivery failed (see logs).',
@@ -403,6 +417,75 @@ export class Runtime {
     } finally {
       if (!this.dispatcher) await dispatcher.shutdown().catch(() => undefined);
     }
+  }
+
+  /** Base URL of the local web server, used by the headless renderer. */
+  private webBaseUrl(): string {
+    return `http://127.0.0.1:${this.config.webPort}`;
+  }
+
+  /** Resolve which save file to render for the map image. */
+  private async resolveMapSavePath(source: MapImageConfig['source']): Promise<string | undefined> {
+    if (source === 'latest-backup') {
+      const history = await listHistory(this.config.stateDir);
+      return history[0]?.path;
+    }
+    return findCanonicalSave(this.config);
+  }
+
+  /**
+   * Render the configured map view (optionally overriding the source) to a PNG.
+   * Throws if no save is available or the headless renderer is unavailable.
+   */
+  async generateMapImage(
+    overrideSource?: MapImageConfig['source'],
+  ): Promise<{ image: RenderMapResult; savePath: string }> {
+    const mapImage = this.config.mapImage;
+    const source = overrideSource ?? mapImage.source;
+    const savePath = await this.resolveMapSavePath(source);
+    if (!savePath) {
+      throw new Error(
+        source === 'latest-backup'
+          ? 'No backup save available to render.'
+          : 'No canonical save available to render.',
+      );
+    }
+    const image = await renderMapImage({
+      baseUrl: this.webBaseUrl(),
+      savePath,
+      mapImage: { ...mapImage, source },
+    });
+    return { image, savePath };
+  }
+
+  /** Best-effort map image attachment for a live post; never throws. */
+  private async mapImageAttachment(): Promise<DiscordImageAttachment | undefined> {
+    try {
+      const { image } = await this.generateMapImage();
+      return { buffer: image.buffer, filename: 'map.png' };
+    } catch (err) {
+      console.error('[map] Could not generate map image:', err);
+      return undefined;
+    }
+  }
+
+  /** List live saves and backups separately for the map page picker. */
+  async listMapSaves(): Promise<{ live: MapSaveEntry[]; backups: MapSaveEntry[] }> {
+    const all = await this.listSaves();
+    const live: MapSaveEntry[] = [];
+    const backups: MapSaveEntry[] = [];
+    for (const s of all) {
+      const entry: MapSaveEntry = {
+        name: s.name,
+        path: s.path,
+        mtimeMs: s.mtimeMs,
+        sizeBytes: s.sizeBytes,
+        isCanonical: s.isCanonical,
+      };
+      if (s.isHistory) backups.push(entry);
+      else live.push(entry);
+    }
+    return { live, backups };
   }
 
   async getStatus(): Promise<RuntimeStatus> {

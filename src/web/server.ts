@@ -22,6 +22,7 @@ export async function startWebServer(
   app.use(express.json({ limit: '256kb' }));
 
   const publicDir = fileURLToPath(new URL('../../public/', import.meta.url));
+  const mapDir = fileURLToPath(new URL('../../public/map/', import.meta.url));
 
   // --- API ---
   app.get('/api/config', (_req: Request, res: Response) => {
@@ -100,6 +101,59 @@ export async function startWebServer(
     res.json(status);
   }));
 
+  // --- Map page API ---
+
+  // List live saves and backups separately for the map picker.
+  app.get('/api/map/saves', asyncHandler(async (_req: Request, res: Response) => {
+    res.json(await runtime.listMapSaves());
+  }));
+
+  // Stream the raw bytes of a save (live or backup) for the client-side parser.
+  app.get('/api/map/save-file', asyncHandler(async (req: Request, res: Response) => {
+    const candidate = req.query.path;
+    if (typeof candidate !== 'string' || !(await isAllowedSave(runtime, candidate))) {
+      res.status(400).json({ error: 'path must reference a known save or backup.' });
+      return;
+    }
+    // Same-origin fetch under COEP require-corp: mark the resource accordingly.
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.sendFile(candidate);
+  }));
+
+  // Render the configured (or requested) map view to a PNG (no posting).
+  app.post('/api/map/render', asyncHandler(async (req: Request, res: Response) => {
+    const source = parseMapSource(req.body?.source);
+    const { image } = await runtime.generateMapImage(source);
+    res.setHeader('Content-Type', 'image/png');
+    res.send(image.buffer);
+  }));
+
+  // Generate a map image and post the current preview summary with it attached.
+  app.post('/api/map/test-post', asyncHandler(async (req: Request, res: Response) => {
+    const latest = runtime.previewStore.getLatest();
+    if (!latest?.summary) {
+      res.status(400).json({ error: 'No preview summary available to post. Generate a preview first.' });
+      return;
+    }
+    const source = parseMapSource(req.body?.source);
+    const { image } = await runtime.generateMapImage(source);
+    const result = await runtime.testPost(latest.summary, { buffer: image.buffer, filename: 'map.png' });
+    res.json(result);
+  }));
+
+  // --- Map static bundle (cross-origin isolated for the WASM parser) ---
+  app.use(
+    '/map',
+    (_req: Request, res: Response, next: express.NextFunction) => {
+      res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+      res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+      res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+      next();
+    },
+    express.static(mapDir, { index: 'index.html' }),
+  );
+
   // --- Static frontend ---
   app.use(express.static(publicDir));
 
@@ -144,6 +198,11 @@ function serializePreview(entry: import('../preview/store.js').PreviewEntry | un
 async function isAllowedSave(runtime: Runtime, candidate: string): Promise<boolean> {
   const saves = await runtime.listSaves();
   return saves.some((s) => s.path === candidate);
+}
+
+/** Narrow an arbitrary request value to a valid map image source, or undefined. */
+function parseMapSource(value: unknown): 'canonical' | 'latest-backup' | undefined {
+  return value === 'canonical' || value === 'latest-backup' ? value : undefined;
 }
 
 /** Wrap an async route handler so rejected promises hit the error middleware. */

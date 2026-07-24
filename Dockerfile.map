@@ -1,0 +1,90 @@
+# =============================================================================
+# Dockerfile.map — FICSIT AuditBot image WITH the embedded satisfactorymap page
+# =============================================================================
+# The default ./Dockerfile ships a lean image WITHOUT the map bundle (the map
+# route 404s, and headless rendering is disabled). This variant additionally
+# builds the satisfactorymap static bundle and ships a Chromium-capable runtime
+# so the "Map" page and the Discord map-image renderer work.
+#
+# PREREQUISITE (one-time, on a machine with the game installed):
+#   The map needs game-derived data (item/building JSONs, icons, the map image)
+#   that is NOT in this repo (Coffee Stain assets, extracted via FModel). Produce
+#   the archive once with the upstream tooling and drop it next to this file:
+#
+#     # in third_party/satisfactorymap, after extracting game data per CONTRIBUTING.md:
+#     py game_data/package_game_data.py pack        # writes game_data.zip
+#     copy game_data.zip <repo>/map-integration/game_data.zip
+#
+#   Then build:  docker build -f Dockerfile.map -t ficsit-auditbot:map .
+#
+# NOTE: this build requires the git submodule to be checked out:
+#     git submodule update --init --recursive
+# =============================================================================
+
+# ---- App build (TypeScript -> dist/) ----
+FROM node:22-alpine AS app-build
+WORKDIR /app
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+COPY package*.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+# ---- Map build (Rust -> WASM + static site) ----
+FROM rust:1-bookworm AS map-build
+WORKDIR /build
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-pip python3-venv \
+ && rm -rf /var/lib/apt/lists/* \
+ && cargo install wasm-pack
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# The vendored, AGPL-licensed map source (submodule).
+COPY third_party/satisfactorymap ./satisfactorymap
+# Python build deps (Pillow for the map-tile pyramid, etc.).
+RUN pip3 install --break-system-packages -r satisfactorymap/requirements.txt
+
+# Game-derived data archive (generated JSONs + map image + icons), produced by
+# package_game_data.py on a machine with the game installed. Not committed.
+COPY map-integration/game_data.zip ./game_data.zip
+RUN cd satisfactorymap && python3 game_data/package_game_data.py unpack ../game_data.zip
+
+# Layer the AuditBot integration overlay onto the frontend before assembling.
+COPY map-integration/overlay/auditbot.js ./satisfactorymap/map/static/map/auditbot.js
+RUN sed -i 's#</body>#  <script src="auditbot.js"></script>\n</body>#' \
+        satisfactorymap/map/static/map/index.html
+
+# Assemble the deployable static site into dist/.
+RUN cd satisfactorymap && python3 tools/build_site.py
+
+# ---- Runtime (Chromium-capable, for headless map rendering) ----
+# Keep this tag in sync with the "playwright" version pinned in package.json.
+FROM mcr.microsoft.com/playwright:v1.48.0-jammy AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Production dependencies (Playwright's browsers are already in the base image).
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# App output + static frontend, then the built map bundle at public/map/.
+COPY --from=app-build /app/dist ./dist
+COPY public ./public
+COPY --from=map-build /build/satisfactorymap/dist ./public/map
+COPY docs/bundled-en-US.json /opt/ficsit-docs/en-US.json
+COPY docker-entrypoint.sh /usr/local/bin/ficsit-entrypoint.sh
+RUN chmod +x /usr/local/bin/ficsit-entrypoint.sh
+
+ENV DATA_DIR=/data \
+    SAVES_DIR=/saves \
+    WEB_PORT=8080 \
+    WEB_ENABLED=true \
+    WATCH_USE_POLLING=true \
+    POST_TO_DISCORD=false \
+    MAP_IMAGE_ENABLED=false
+
+EXPOSE 8080
+VOLUME ["/data"]
+ENTRYPOINT ["/usr/local/bin/ficsit-entrypoint.sh"]
+CMD ["node", "dist/index.js"]

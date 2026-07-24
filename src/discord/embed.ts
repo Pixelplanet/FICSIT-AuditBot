@@ -13,6 +13,15 @@ export interface DiscordEmbedJson {
   color: number;
   fields: { name: string; value: string; inline?: boolean }[];
   timestamp?: string;
+  image?: { url: string };
+}
+
+/** An image to attach to a Discord message and reference from an embed. */
+export interface DiscordImageAttachment {
+  /** Image bytes (PNG). */
+  buffer: Buffer;
+  /** File name referenced via attachment://<filename> from the embed. */
+  filename: string;
 }
 
 export function toDiscordEmbed(embed: SummaryEmbed): DiscordEmbedJson {

@@ -5,10 +5,11 @@
 import {
   Client,
   GatewayIntentBits,
+  AttachmentBuilder,
   type TextChannel,
 } from 'discord.js';
 import type { SummaryResult } from '../summary/format.js';
-import { toDiscordEmbed } from './embed.js';
+import { toDiscordEmbed, type DiscordImageAttachment } from './embed.js';
 
 export class DiscordBot {
   private client?: Client;
@@ -37,13 +38,19 @@ export class DiscordBot {
     return client;
   }
 
-  async post(summary: SummaryResult): Promise<void> {
+  async post(summary: SummaryResult, image?: DiscordImageAttachment): Promise<void> {
     const client = await this.ensureReady();
     const channel = await client.channels.fetch(this.channelId);
     if (!channel || !channel.isTextBased()) {
       throw new Error(`Discord channel ${this.channelId} is not a text channel.`);
     }
-    await (channel as TextChannel).send({ embeds: [toDiscordEmbed(summary.embed)] });
+    const embed = toDiscordEmbed(summary.embed);
+    const files: AttachmentBuilder[] = [];
+    if (image) {
+      embed.image = { url: `attachment://${image.filename}` };
+      files.push(new AttachmentBuilder(image.buffer, { name: image.filename }));
+    }
+    await (channel as TextChannel).send({ embeds: [embed], files });
   }
 
   async destroy(): Promise<void> {

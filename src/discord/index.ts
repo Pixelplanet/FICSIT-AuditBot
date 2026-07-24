@@ -4,6 +4,7 @@
  */
 import type { AppConfig } from '../config.js';
 import type { SummaryResult } from '../summary/format.js';
+import type { DiscordImageAttachment } from './embed.js';
 import { postViaWebhook } from './webhook.js';
 import { DiscordBot } from './bot.js';
 
@@ -18,15 +19,15 @@ export class DiscordDispatcher {
   }
 
   /** Returns true if at least one delivery succeeded. */
-  async dispatch(summary: SummaryResult): Promise<boolean> {
+  async dispatch(summary: SummaryResult, image?: DiscordImageAttachment): Promise<boolean> {
     const tasks: Promise<void>[] = [];
     const { webhookUrl } = this.config.discord;
 
     if (webhookUrl) {
-      tasks.push(postViaWebhook(webhookUrl, summary));
+      tasks.push(postViaWebhook(webhookUrl, summary, image));
     }
     if (this.bot) {
-      tasks.push(this.bot.post(summary));
+      tasks.push(this.bot.post(summary, image));
     }
 
     if (tasks.length === 0) return false;
