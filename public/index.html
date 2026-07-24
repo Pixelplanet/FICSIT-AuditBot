@@ -105,9 +105,9 @@
             </div>
           </div>
           <div class="row map-marker-bar">
-            <span class="muted">Rendered-image markers:</span>
-            <button id="btnSaveMarkers" class="btn">Save current markers for rendering</button>
-            <button id="btnResetMarkers" class="btn btn-ghost">Reset to all markers</button>
+            <span class="muted">Rendered image view:</span>
+            <button id="btnSaveMarkers" class="btn">Save current view for rendering</button>
+            <button id="btnResetMarkers" class="btn btn-ghost">Reset to full overview</button>
             <span id="markerState" class="muted"></span>
           </div>
         </div>
@@ -311,10 +311,6 @@
                 <option value="latest-backup">Latest backup</option>
               </select>
             </label>
-            <label class="field">
-              <span>Default zoom</span>
-              <input type="number" name="mapImageZoom" step="1" />
-            </label>
             <div class="row">
               <label class="field">
                 <span>Image width (px)</span>
@@ -326,8 +322,9 @@
               </label>
             </div>
             <p class="muted">
-              Which markers appear is set on the <strong>Map</strong> tab: toggle the categories you
-              want, then click “Save current markers for rendering”. Blank = all markers.
+              The rendered image reproduces the exact zoom, pan and markers you set on the
+              <strong>Map</strong> tab — set up the view there, then click
+              “Save current view for rendering”.
             </p>
           </fieldset>
 

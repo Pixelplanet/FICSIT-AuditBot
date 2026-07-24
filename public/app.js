@@ -117,7 +117,6 @@ async function loadConfig() {
     f.webPort.value = cfg.webPort ?? 8080;
     f.mapImageEnabled.checked = !!cfg.mapImage?.enabled;
     f.mapImageSource.value = cfg.mapImage?.source || 'canonical';
-    f.mapImageZoom.value = cfg.mapImage?.zoom ?? 4;
     f.mapImageWidth.value = cfg.mapImage?.width ?? 1280;
     f.mapImageHeight.value = cfg.mapImage?.height ?? 1280;
     setState('webhookState', cfg.discord.webhookUrlSet);
@@ -208,7 +207,6 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
     mapImage: {
       enabled: f.mapImageEnabled.checked,
       source: f.mapImageSource.value,
-      zoom: Number(f.mapImageZoom.value),
       width: Number(f.mapImageWidth.value),
       height: Number(f.mapImageHeight.value),
     },
@@ -633,36 +631,50 @@ document.getElementById('btnMapPost')?.addEventListener('click', async () => {
   }
 });
 
-// Reflect whether a custom marker selection is saved for rendering.
+// Reflect whether a custom view/markers are saved for rendering.
 async function refreshMarkerState() {
   const el = document.getElementById('markerState');
   if (!el) return;
   try {
     const cfg = await getJSON('/api/config');
-    el.textContent = cfg.mapImage?.visibility ? '\u2713 custom selection saved' : 'all markers (default)';
+    const m = cfg.mapImage || {};
+    const hasView = m.centerX != null && m.centerY != null;
+    const hasMarkers = !!m.visibility;
+    el.textContent = hasView
+      ? '\u2713 view saved' + (hasMarkers ? ' + custom markers' : '')
+      : 'full overview, all markers (default)';
   } catch {
     el.textContent = '';
   }
 }
 
-// Capture the interactive map's current marker visibility (persisted by the
-// map in its localStorage) and store it as the render default.
+// Capture the interactive map's exact view (center + zoom) and marker
+// visibility so the rendered image reproduces precisely what's on screen.
 document.getElementById('btnSaveMarkers')?.addEventListener('click', async () => {
   const frame = document.getElementById('mapFrame');
+  const win = frame && frame.contentWindow;
+  let view = null;
   let visibility = null;
   try {
-    visibility = frame.contentWindow.localStorage.getItem('smapSavedVisibility');
+    const map = win && win.MapApp && win.MapApp.map;
+    if (map && typeof map.getCenter === 'function') {
+      const c = map.getCenter();
+      view = { centerX: c.lng, centerY: c.lat, zoom: map.getZoom() };
+    }
+    visibility = win.localStorage.getItem('smapSavedVisibility');
   } catch {
-    toast('Open the map and toggle some markers first.', 'err');
+    toast('Open the map first, then set your view.', 'err');
     return;
   }
-  if (!visibility) {
-    toast('No marker changes yet \u2014 toggle categories on the map, then save.', 'err');
+  if (!view) {
+    toast('Map not ready \u2014 load a save and set your view first.', 'err');
     return;
   }
+  const patch = { mapImage: { centerX: view.centerX, centerY: view.centerY, zoom: view.zoom } };
+  if (visibility) patch.mapImage.visibility = visibility;
   try {
-    await sendJSON('/api/config', 'PUT', { mapImage: { visibility } });
-    toast('Marker selection saved for rendering.', 'ok');
+    await sendJSON('/api/config', 'PUT', patch);
+    toast('View & markers saved for rendering.', 'ok');
     void refreshMarkerState();
   } catch (err) {
     toast('Save failed: ' + err.message, 'err');
@@ -671,8 +683,10 @@ document.getElementById('btnSaveMarkers')?.addEventListener('click', async () =>
 
 document.getElementById('btnResetMarkers')?.addEventListener('click', async () => {
   try {
-    await sendJSON('/api/config', 'PUT', { mapImage: { visibility: null } });
-    toast('Reset to all markers.', 'ok');
+    await sendJSON('/api/config', 'PUT', {
+      mapImage: { visibility: null, centerX: null, centerY: null },
+    });
+    toast('Reset to full-map overview and all markers.', 'ok');
     void refreshMarkerState();
   } catch (err) {
     toast('Reset failed: ' + err.message, 'err');
